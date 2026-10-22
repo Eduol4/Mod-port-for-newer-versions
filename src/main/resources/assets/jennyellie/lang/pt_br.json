@@ -8,5 +8,17 @@
     "action.names.followme": "Seguir-me",
     "action.names.stopfollowme": "Parar de seguir",
     "action.names.setnewhome": "Definir nova casa",
-    "action.names.gohome": "Ir para casa"
+    "action.names.gohome": "Ir para casa",
+
+    "message.jennyellie.jenny.follow": "Okay! Estou logo atrás de você %s~",
+    "message.jennyellie.jenny.stop": "Ah.. bem.. até mais~",
+    "message.jennyellie.jenny.sethome": "Hihi~",
+    "message.jennyellie.jenny.gohome": "Beleza, estou indo pra casa. Até~",
+    "message.jennyellie.ellie.follow": "Vou te proteger, querido~",
+    "message.jennyellie.ellie.stop": "fique seguro, querido~",
+    "message.jennyellie.ellie.sethome": "Mhm.. eu sei~",
+    "message.jennyellie.ellie.gohome": "Okay, a mamãe está indo pra casa... fique seguro, querido~",
+
+    "subtitle.jennyellie.jenny": "Jenny",
+    "subtitle.jennyellie.ellie": "Ellie"
 }

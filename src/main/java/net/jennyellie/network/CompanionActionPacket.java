@@ -49,6 +49,7 @@ public class CompanionActionPacket {
                 case SET_HOME -> companion.commandSetHome();
                 case GO_HOME -> companion.commandGoHome();
             }
+            companion.onCommandFeedback(player, msg.action);
         });
         ctx.get().setPacketHandled(true);
     }

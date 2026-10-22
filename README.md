@@ -3,9 +3,17 @@
 Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
 Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 4
+## ⚠️ Status: Milestone 5
 
 **Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
+
+### Novidades da Milestone 5
+- **Som + mensagem nas ações do menu:** ao clicar Seguir / Parar / Definir casa / Ir pra casa, ela fala no chat (texto do mod original) e toca uma voz SFW (giggle/happyoh/sigh/sadoh).
+- **Animação de ataque:** toca (attack0/1/2, aleatória) quando ela acerta um golpe.
+- **Animação de correr:** toca quando ela persegue um alvo ou quando segue um jogador que está correndo (sprint).
+- **Agachar (Ellie):** toca a animação de agachar quando ela passa por um espaço de 2 blocos de altura.
+
+Pendente (separado, por ser complexo): **montar na garupa** quando o jogador anda de cavalo/barco.
 
 ### Novidades da Milestone 4
 - **Config de atributos:** arquivo `config/jennyellie-common.toml` (gerado no 1º run) com HP, dano, velocidade e alcance de cada uma — edite sem mexer no `.jar`.

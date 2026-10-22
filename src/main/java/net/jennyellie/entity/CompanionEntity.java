@@ -3,6 +3,7 @@ package net.jennyellie.entity;
 import java.util.EnumSet;
 import java.util.UUID;
 import net.jennyellie.JennyEllieMod;
+import net.jennyellie.network.CompanionActionPacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -10,11 +11,16 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.TamableAnimal;
@@ -51,23 +57,21 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 
 /**
  * Base das companheiras (Jenny/Ellie).
- * - Nome fixo e sempre visível (não renomeável por etiqueta).
- * - "Sempre domesticadas" (a mecânica de domesticar por item existe mas está desativada).
- * - Clique direito: para, encara o jogador aguardando comando, e abre o menu de opções.
- * - Atributos (HP/dano/velocidade/alcance) vêm do config.
  */
 public abstract class CompanionEntity extends TamableAnimal implements GeoEntity {
 
-    /** Mecânica de domesticar por item: desativada por ora, mantida para uso futuro. */
     public static final boolean TAMING_ITEM_ENABLED = false;
 
     private static final EntityDataAccessor<Boolean> DATA_FOLLOWING =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_RUNNING =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_CROUCHING =
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
 
     @Nullable
     private BlockPos homePos;
 
-    // "Aguardando comando": parada e encarando o jogador após o clique direito.
     @Nullable
     private UUID awaitPlayerId;
     private int awaitUntilTick;
@@ -78,32 +82,37 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
 
     protected CompanionEntity(EntityType<? extends TamableAnimal> type, Level level) {
         super(type, level);
-        // Nome fixo e sempre visível.
         super.setCustomName(getFixedName());
         this.setCustomNameVisible(true);
     }
 
-    /** Prefixo de animação / nome: "jenny" ou "ellie". */
     protected abstract String animBase();
 
-    // Atributos vindos do config (implementados por Jenny/Ellie).
     protected abstract double cfgMaxHealth();
     protected abstract double cfgAttackDamage();
     protected abstract double cfgMovementSpeed();
     protected abstract double cfgFollowRange();
 
+    protected abstract SoundEvent soundFollow();
+    protected abstract SoundEvent soundStop();
+    protected abstract SoundEvent soundSetHome();
+    protected abstract SoundEvent soundGoHome();
+
+    /** Só a Ellie tem animações de agachar. */
+    protected boolean canCrouch() {
+        return false;
+    }
+
     private Component getFixedName() {
         return Component.translatable("entity." + JennyEllieMod.MODID + "." + animBase());
     }
 
-    /** Nome fixo: ignora qualquer tentativa externa (etiqueta) de renomear. */
     @Override
     public void setCustomName(@Nullable Component name) {
         super.setCustomName(getFixedName());
     }
 
     public static AttributeSupplier.Builder createBaseAttributes() {
-        // Valores apenas de partida; os reais vêm do config em applyConfigAttributes().
         return TamableAnimal.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.3D)
@@ -115,6 +124,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     protected void defineSynchedData() {
         super.defineSynchedData();
         this.entityData.define(DATA_FOLLOWING, false);
+        this.entityData.define(DATA_RUNNING, false);
+        this.entityData.define(DATA_CROUCHING, false);
     }
 
     @Override
@@ -164,11 +175,43 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     @Override
     public void tick() {
         super.tick();
-        // Cobre também /summon (que não chama finalizeSpawn) e mundos carregados.
-        if (!this.level().isClientSide && !this.appliedConfig) {
-            applyConfigAttributes();
-            this.appliedConfig = true;
+        if (!this.level().isClientSide) {
+            if (!this.appliedConfig) {
+                applyConfigAttributes();
+                this.appliedConfig = true;
+            }
+            updateMovementStates();
         }
+    }
+
+    /** Atualiza os estados sincronizados usados pelas animações. */
+    private void updateMovementStates() {
+        boolean chasing = this.getTarget() != null;
+        boolean ownerSprinting = this.isFollowing()
+                && this.getOwner() instanceof Player p && p.isSprinting();
+        boolean running = chasing || ownerSprinting;
+        if (this.entityData.get(DATA_RUNNING) != running) {
+            this.entityData.set(DATA_RUNNING, running);
+        }
+
+        boolean crouch = this.canCrouch() && isUnderLowCeiling();
+        if (this.entityData.get(DATA_CROUCHING) != crouch) {
+            this.entityData.set(DATA_CROUCHING, crouch);
+        }
+    }
+
+    /** Verdadeiro quando há um bloco logo acima da hitbox (teto de 2 blocos de altura). */
+    private boolean isUnderLowCeiling() {
+        BlockPos above = this.blockPosition().above(2);
+        return !this.level().getBlockState(above).getCollisionShape(this.level(), above).isEmpty();
+    }
+
+    public boolean isRunning() {
+        return this.entityData.get(DATA_RUNNING);
+    }
+
+    public boolean isCrouchingAnim() {
+        return this.entityData.get(DATA_CROUCHING);
     }
 
     // ---------------- Estado de companheira ----------------
@@ -215,6 +258,30 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         clearAwait();
     }
 
+    /** Mensagem no chat + som, após uma ação do menu. */
+    public void onCommandFeedback(ServerPlayer player, CompanionActionPacket.Action action) {
+        String key = switch (action) {
+            case FOLLOW -> "follow";
+            case STOP -> "stop";
+            case SET_HOME -> "sethome";
+            case GO_HOME -> "gohome";
+        };
+        Component msg = Component.translatable(
+                "message." + JennyEllieMod.MODID + "." + animBase() + "." + key, player.getDisplayName());
+        player.sendSystemMessage(Component.translatable("chat.type.text", this.getDisplayName(), msg));
+
+        SoundEvent sound = switch (action) {
+            case FOLLOW -> soundFollow();
+            case STOP -> soundStop();
+            case SET_HOME -> soundSetHome();
+            case GO_HOME -> soundGoHome();
+        };
+        if (sound != null) {
+            this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                    sound, SoundSource.NEUTRAL, 1.0F, 1.0F);
+        }
+    }
+
     // ---------------- "Aguardando comando" ----------------
     public boolean isAwaiting() {
         return this.awaitPlayerId != null && this.tickCount < this.awaitUntilTick && getAwaitPlayer() != null;
@@ -234,28 +301,24 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
 
-        // Domesticar por item — desativado por ora (mantido para uso futuro).
         if (TAMING_ITEM_ENABLED && !this.isTame() && stack.is(Items.DIAMOND)) {
             return tameWithItem(player, stack);
         }
 
         if (!this.level().isClientSide) {
-            // Servidor: para e encara o jogador aguardando comando — a menos que esteja em combate.
             if (this.getTarget() == null) {
                 this.awaitPlayerId = player.getUUID();
-                this.awaitUntilTick = this.tickCount + 100; // ~5s
+                this.awaitUntilTick = this.tickCount + 100;
                 this.getNavigation().stop();
                 this.getLookControl().setLookAt(player, 30.0F, 30.0F);
             }
         } else {
-            // Cliente: abre o menu de opções SFW.
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                     () -> () -> net.jennyellie.client.ClientHooks.openCompanionMenu(this));
         }
         return InteractionResult.sidedSuccess(this.level().isClientSide);
     }
 
-    /** Mantido para uso futuro; atualmente nunca chamado (ver TAMING_ITEM_ENABLED). */
     private InteractionResult tameWithItem(Player player, ItemStack stack) {
         if (!player.getAbilities().instabuild) {
             stack.shrink(1);
@@ -269,6 +332,15 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             }
         }
         return InteractionResult.sidedSuccess(this.level().isClientSide);
+    }
+
+    @Override
+    public boolean doHurtTarget(Entity target) {
+        boolean result = super.doHurtTarget(target);
+        if (result && !this.level().isClientSide) {
+            this.triggerAnim("attack", "attack" + this.random.nextInt(3));
+        }
+        return result;
     }
 
     @Override
@@ -289,7 +361,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         if (tag.contains("HomeX")) {
             this.homePos = new BlockPos(tag.getInt("HomeX"), tag.getInt("HomeY"), tag.getInt("HomeZ"));
         }
-        // Garante nome fixo mesmo em entidades salvas antes.
         super.setCustomName(getFixedName());
         this.setCustomNameVisible(true);
     }
@@ -308,16 +379,27 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     // ---------------- GeckoLib ----------------
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        String b = "animation." + animBase() + ".";
         controllers.add(new AnimationController<>(this, "main", 5, this::mainPredicate));
+        controllers.add(new AnimationController<>(this, "attack", 0, state -> PlayState.STOP)
+                .triggerableAnim("attack0", RawAnimation.begin().thenPlay(b + "attack0"))
+                .triggerableAnim("attack1", RawAnimation.begin().thenPlay(b + "attack1"))
+                .triggerableAnim("attack2", RawAnimation.begin().thenPlay(b + "attack2")));
     }
 
     private PlayState mainPredicate(AnimationState<CompanionEntity> state) {
-        String base = "animation." + animBase() + ".";
-        if (state.isMoving()) {
-            state.setAnimation(RawAnimation.begin().thenLoop(base + "walk"));
+        String b = "animation." + animBase() + ".";
+        boolean moving = state.isMoving();
+
+        if (isCrouchingAnim()) {
+            state.setAnimation(RawAnimation.begin().thenLoop(b + (moving ? "crouchwalk" : "crouchidle")));
             return PlayState.CONTINUE;
         }
-        state.setAnimation(RawAnimation.begin().thenLoop(base + "idle"));
+        if (moving) {
+            state.setAnimation(RawAnimation.begin().thenLoop(b + (isRunning() ? "run" : "walk")));
+            return PlayState.CONTINUE;
+        }
+        state.setAnimation(RawAnimation.begin().thenLoop(b + "idle"));
         return PlayState.CONTINUE;
     }
 
@@ -327,7 +409,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     }
 
     // ---------------- Goals auxiliares ----------------
-    /** Após o clique direito: fica parada encarando o jogador por um curto período. */
     static class AwaitCommandGoal extends Goal {
         private final CompanionEntity companion;
 
@@ -361,7 +442,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         }
     }
 
-    /** Seguir o dono somente quando o jogador mandou seguir. */
     static class CompanionFollowOwnerGoal extends FollowOwnerGoal {
         private final CompanionEntity companion;
 
@@ -381,7 +461,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         }
     }
 
-    /** Voltar pra casa quando não está seguindo e tem uma casa definida. */
     static class ReturnHomeGoal extends Goal {
         private final CompanionEntity companion;
         private final double speed;

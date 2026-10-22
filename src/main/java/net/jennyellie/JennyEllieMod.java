@@ -24,6 +24,7 @@ public class JennyEllieMod {
         ModEntities.ENTITY_TYPES.register(modBus);
         ModItems.ITEMS.register(modBus);
         ModCreativeTabs.TABS.register(modBus);
+        net.jennyellie.registry.ModSounds.SOUNDS.register(modBus);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 

@@ -8,5 +8,17 @@
     "action.names.followme": "Follow me",
     "action.names.stopfollowme": "Stop following me",
     "action.names.setnewhome": "Set new home",
-    "action.names.gohome": "Go home"
+    "action.names.gohome": "Go home",
+
+    "message.jennyellie.jenny.follow": "Okay! I am right behind you %s~",
+    "message.jennyellie.jenny.stop": "Oh.. well.. cya~",
+    "message.jennyellie.jenny.sethome": "Hihi~",
+    "message.jennyellie.jenny.gohome": "Alright, I'm going home. Cya~",
+    "message.jennyellie.ellie.follow": "I'll protect you darling~",
+    "message.jennyellie.ellie.stop": "stay safe darling~",
+    "message.jennyellie.ellie.sethome": "Mhm.. I know~",
+    "message.jennyellie.ellie.gohome": "Okay, mommy is going home... stay safe darling~",
+
+    "subtitle.jennyellie.jenny": "Jenny",
+    "subtitle.jennyellie.ellie": "Ellie"
 }

@@ -1,0 +1,122 @@
+{
+  "jenny.giggle": {
+    "category": "neutral",
+    "subtitle": "subtitle.jennyellie.jenny",
+    "sounds": [
+      {
+        "name": "girls/jenny/giggle/giggle0"
+      },
+      {
+        "name": "girls/jenny/giggle/giggle1"
+      },
+      {
+        "name": "girls/jenny/giggle/giggle2"
+      },
+      {
+        "name": "girls/jenny/giggle/giggle3"
+      },
+      {
+        "name": "girls/jenny/giggle/giggle4"
+      }
+    ]
+  },
+  "jenny.happyoh": {
+    "category": "neutral",
+    "subtitle": "subtitle.jennyellie.jenny",
+    "sounds": [
+      {
+        "name": "girls/jenny/happyoh/happyoh0"
+      },
+      {
+        "name": "girls/jenny/happyoh/happyoh1"
+      },
+      {
+        "name": "girls/jenny/happyoh/happyoh2"
+      }
+    ]
+  },
+  "jenny.sigh": {
+    "category": "neutral",
+    "subtitle": "subtitle.jennyellie.jenny",
+    "sounds": [
+      {
+        "name": "girls/jenny/sigh/sigh0"
+      },
+      {
+        "name": "girls/jenny/sigh/sigh1"
+      }
+    ]
+  },
+  "jenny.sadoh": {
+    "category": "neutral",
+    "subtitle": "subtitle.jennyellie.jenny",
+    "sounds": [
+      {
+        "name": "girls/jenny/sadoh/sadoh0"
+      },
+      {
+        "name": "girls/jenny/sadoh/sadoh1"
+      }
+    ]
+  },
+  "ellie.giggle": {
+    "category": "neutral",
+    "subtitle": "subtitle.jennyellie.ellie",
+    "sounds": [
+      {
+        "name": "girls/ellie/giggle/giggle0"
+      },
+      {
+        "name": "girls/ellie/giggle/giggle1"
+      },
+      {
+        "name": "girls/ellie/giggle/giggle2"
+      },
+      {
+        "name": "girls/ellie/giggle/giggle3"
+      },
+      {
+        "name": "girls/ellie/giggle/giggle4"
+      }
+    ]
+  },
+  "ellie.happyoh": {
+    "category": "neutral",
+    "subtitle": "subtitle.jennyellie.ellie",
+    "sounds": [
+      {
+        "name": "girls/ellie/happyoh/happyoh0"
+      },
+      {
+        "name": "girls/ellie/happyoh/happyoh1"
+      },
+      {
+        "name": "girls/ellie/happyoh/happyoh2"
+      }
+    ]
+  },
+  "ellie.sigh": {
+    "category": "neutral",
+    "subtitle": "subtitle.jennyellie.ellie",
+    "sounds": [
+      {
+        "name": "girls/ellie/sigh/sigh0"
+      },
+      {
+        "name": "girls/ellie/sigh/sigh1"
+      }
+    ]
+  },
+  "ellie.sadoh": {
+    "category": "neutral",
+    "subtitle": "subtitle.jennyellie.ellie",
+    "sounds": [
+      {
+        "name": "girls/ellie/sadoh/sadoh0"
+      },
+      {
+        "name": "girls/ellie/sadoh/sadoh1"
+      }
+    ]
+  }
+}

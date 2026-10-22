@@ -1,6 +1,8 @@
 package net.jennyellie.entity;
 
 import net.jennyellie.Config;
+import net.jennyellie.registry.ModSounds;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.level.Level;
@@ -38,5 +40,30 @@ public class EllieEntity extends CompanionEntity {
     @Override
     protected double cfgFollowRange() {
         return Config.ELLIE_FOLLOW_RANGE.get();
+    }
+
+    @Override
+    protected boolean canCrouch() {
+        return true;
+    }
+
+    @Override
+    protected SoundEvent soundFollow() {
+        return ModSounds.ELLIE_GIGGLE.get();
+    }
+
+    @Override
+    protected SoundEvent soundStop() {
+        return ModSounds.ELLIE_SADOH.get();
+    }
+
+    @Override
+    protected SoundEvent soundSetHome() {
+        return ModSounds.ELLIE_HAPPYOH.get();
+    }
+
+    @Override
+    protected SoundEvent soundGoHome() {
+        return ModSounds.ELLIE_SIGH.get();
     }
 }
