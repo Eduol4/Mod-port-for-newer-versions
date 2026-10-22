@@ -3,5 +3,10 @@
     "entity.jennyellie.ellie": "Ellie",
     "item.jennyellie.jenny_spawn_egg": "Jenny Spawn Egg",
     "item.jennyellie.ellie_spawn_egg": "Ellie Spawn Egg",
-    "itemGroup.jennyellie.tab": "Jenny & Ellie"
+    "itemGroup.jennyellie.tab": "Jenny & Ellie",
+
+    "action.names.followme": "Follow me",
+    "action.names.stopfollowme": "Stop following me",
+    "action.names.setnewhome": "Set new home",
+    "action.names.gohome": "Go home"
 }

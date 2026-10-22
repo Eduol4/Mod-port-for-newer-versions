@@ -1,25 +1,25 @@
-# Companions — 1.20.1 Forge
+# Jenny & Ellie Companions (SFW) — 1.20.1 Forge
 
-Rebuild limpo contendo apenas COMPANIONS, portado para Minecraft **1.20.1 / Forge**.
-Base: 1.12.2.
+Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
+Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 1 (primeiro build testável)
+## ⚠️ Status: Milestone 2
 
-Esta versão é a **fundação**. O objetivo dela é só: as duas aparecerem no jogo, renderizarem com o modelo + animação, e funcionarem como companheiras básicas. **Ainda não foi compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você é quem compila e testa, e a gente ajusta junto.
+**Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
 
-### O que esta Milestone 1 inclui
-- As entidades registradas.
-- Renderização via **GeckoLib 4** (modelo + texturas + animações).
-- Animações: `idle`, `walk`, `sit` em uso (as demais já estão nos arquivos, prontas pra usar depois).
-- **Spawn eggs** das duas + uma **aba no modo criativo**.
-- IA básica de companheira: **domesticar**, **seguir o dono**, **sentar ao comando**, atacar quem ataca o dono.
+### Novidades da Milestone 2
+- **Correção de modelo/textura:** os geo declaravam `texture_width=64` mas a textura é 4096×4096. Ajustado (UVs reescalados) para o GeckoLib 4 mapear certo.
+- **Sempre "domesticadas" por padrão:** não precisa mais de item pra domesticar. A mecânica de item continua no código, porém **desativada** (`CompanionEntity.TAMING_ITEM_ENABLED = false`) para uso futuro.
+- **Menu de opções (clique direito):** abre uma tela com botões à esquerda — **Seguir / Parar de seguir / Definir nova casa / Ir para casa** (as ações NSFW que ficavam à direita no original foram removidas).
+
+### Base (Milestone 1)
+- Entidades **Jenny** e **Ellie**, render via **GeckoLib 4**, **spawn eggs** + aba criativa, IA de companheira (seguir, voltar pra casa, atacar quem ataca o dono).
 
 ### Ainda NÃO incluso (próximas milestones)
-- Menu de ação (follow/stop/go home/set new home/equipment) como no original
-- Sistema de equipamento (armadura/armas) e "dress up"
+- **Inventário/equipamento** (armadura e armas) — o botão será adicionado depois
 - Combate com arco, "downed"/reviver, ride, throw pearl
-- Hug/dash, emotes
-- Sons, estruturas (casas), potion
+- Hug/dash (Ellie), emotes (Jenny), sentar
+- Sons (vozes SFW), estruturas (casas), spawn natural, horny potion
 
 ## Como buildar
 
@@ -36,4 +36,30 @@ O `.jar` sai em `build/libs/jennyellie-0.1.0.jar`. Copie pra pasta `mods` junto 
 Para testar no ambiente de desenvolvimento:
 ```bash
 ./gradlew runClient
+```
+
+### Como usar no jogo
+1. Pegue os **spawn eggs** na aba criativa "Jenny & Ellie" (ou `/give`).
+2. Spawne a Jenny/Ellie.
+3. **Clique com o botão direito** nela → abre o menu de opções à esquerda.
+4. Use os botões: **Seguir** (ela te segue), **Parar de seguir**, **Definir nova casa** (marca o lugar atual como casa dela), **Ir para casa** (ela volta pra casa).
+
+## Pontos que podem precisar de ajuste no primeiro build
+- **Versão do GeckoLib:** `gradle.properties` usa `geckolib_version=4.4.9`. Se o Gradle não achar essa versão, troque pela build mais recente do GeckoLib para 1.20.1 Forge (repo já configurado no `build.gradle`).
+- **Compatibilidade dos modelos:** os `.geo.json` (format 1.12.0) e animações (1.8.0) vêm do mod 1.12.2. O GeckoLib 4 deve carregá-los, mas é o primeiro ponto a verificar se algo não renderizar.
+- **Item de domesticar:** diamante é só placeholder.
+
+## Estrutura
+```
+src/main/java/net/jennyellie/
+  JennyEllieMod.java            # classe principal
+  registry/                     # entidades, itens (spawn eggs), aba criativa, atributos
+  entity/                       # CompanionEntity (base) + JennyEntity + EllieEntity
+  client/                       # renderers + models (GeckoLib) + registro de renderers
+src/main/resources/assets/jennyellie/
+  geo/entity/                   # modelos (jenny.geo.json, ellie.geo.json) — só "dressed"
+  animations/                   # animações SFW filtradas
+  textures/entity/              # jenny.png, ellie.png
+  models/item/                  # modelos dos spawn eggs
+  lang/                         # en_us, pt_br
 ```
