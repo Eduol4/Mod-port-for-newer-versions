@@ -3,9 +3,14 @@
 Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
 Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 5
+## ⚠️ Status: Milestone 6
 
 **Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
+
+### Novidades da Milestone 6
+- **Sons agora tocam:** os `.ogg` estavam a 192 kHz (o Minecraft não toca); reamostrados pra 44.1 kHz. Agora: Jenny toca som em "definir casa" e "ir pra casa"; Ellie em "parar de seguir", "definir casa" e "ir pra casa".
+- **Velocidade separada andar/correr:** config tem `movementSpeed` (andando) e `runSpeed` (correndo). Padrões novos: 0.25 andando, 0.4 correndo.
+- **Config aceita decimais:** use ponto, ex.: `movementSpeed = 0.25` (não vírgula).
 
 ### Novidades da Milestone 5
 - **Som + mensagem nas ações do menu:** ao clicar Seguir / Parar / Definir casa / Ir pra casa, ela fala no chat (texto do mod original) e toca uma voz SFW (giggle/happyoh/sigh/sadoh).

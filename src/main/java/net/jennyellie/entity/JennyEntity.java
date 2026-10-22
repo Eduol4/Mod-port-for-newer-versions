@@ -38,18 +38,24 @@ public class JennyEntity extends CompanionEntity {
     }
 
     @Override
+    protected double cfgRunSpeed() {
+        return Config.JENNY_RUN_SPEED.get();
+    }
+
+    @Override
     protected double cfgFollowRange() {
         return Config.JENNY_FOLLOW_RANGE.get();
     }
 
+    // Jenny: som só em "definir casa" e "ir pra casa".
     @Override
     protected SoundEvent soundFollow() {
-        return ModSounds.JENNY_GIGGLE.get();
+        return null;
     }
 
     @Override
     protected SoundEvent soundStop() {
-        return ModSounds.JENNY_SADOH.get();
+        return null;
     }
 
     @Override

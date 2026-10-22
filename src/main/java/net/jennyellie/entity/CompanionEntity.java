@@ -91,6 +91,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     protected abstract double cfgMaxHealth();
     protected abstract double cfgAttackDamage();
     protected abstract double cfgMovementSpeed();
+    protected abstract double cfgRunSpeed();
     protected abstract double cfgFollowRange();
 
     protected abstract SoundEvent soundFollow();
@@ -192,6 +193,13 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         boolean running = chasing || ownerSprinting;
         if (this.entityData.get(DATA_RUNNING) != running) {
             this.entityData.set(DATA_RUNNING, running);
+        }
+
+        // Velocidade diferente andando vs correndo.
+        double desiredSpeed = running ? cfgRunSpeed() : cfgMovementSpeed();
+        AttributeInstance speed = this.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed != null && speed.getBaseValue() != desiredSpeed) {
+            speed.setBaseValue(desiredSpeed);
         }
 
         boolean crouch = this.canCrouch() && isUnderLowCeiling();

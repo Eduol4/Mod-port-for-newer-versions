@@ -38,6 +38,11 @@ public class EllieEntity extends CompanionEntity {
     }
 
     @Override
+    protected double cfgRunSpeed() {
+        return Config.ELLIE_RUN_SPEED.get();
+    }
+
+    @Override
     protected double cfgFollowRange() {
         return Config.ELLIE_FOLLOW_RANGE.get();
     }
@@ -47,9 +52,10 @@ public class EllieEntity extends CompanionEntity {
         return true;
     }
 
+    // Ellie: som em "parar de seguir", "definir casa" e "ir pra casa".
     @Override
     protected SoundEvent soundFollow() {
-        return ModSounds.ELLIE_GIGGLE.get();
+        return null;
     }
 
     @Override

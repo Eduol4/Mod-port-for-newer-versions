@@ -10,11 +10,13 @@ public class Config {
     public static final ForgeConfigSpec.DoubleValue JENNY_MAX_HEALTH;
     public static final ForgeConfigSpec.DoubleValue JENNY_ATTACK_DAMAGE;
     public static final ForgeConfigSpec.DoubleValue JENNY_MOVEMENT_SPEED;
+    public static final ForgeConfigSpec.DoubleValue JENNY_RUN_SPEED;
     public static final ForgeConfigSpec.DoubleValue JENNY_FOLLOW_RANGE;
 
     public static final ForgeConfigSpec.DoubleValue ELLIE_MAX_HEALTH;
     public static final ForgeConfigSpec.DoubleValue ELLIE_ATTACK_DAMAGE;
     public static final ForgeConfigSpec.DoubleValue ELLIE_MOVEMENT_SPEED;
+    public static final ForgeConfigSpec.DoubleValue ELLIE_RUN_SPEED;
     public static final ForgeConfigSpec.DoubleValue ELLIE_FOLLOW_RANGE;
 
     static {
@@ -25,8 +27,10 @@ public class Config {
                 .defineInRange("maxHealth", 20.0, 1.0, 1024.0);
         JENNY_ATTACK_DAMAGE = b.comment("Dano de ataque.")
                 .defineInRange("attackDamage", 3.0, 0.0, 1024.0);
-        JENNY_MOVEMENT_SPEED = b.comment("Velocidade de movimento (0.3 ~ padrão de mob; jogador ~0.1).")
-                .defineInRange("movementSpeed", 0.3, 0.0, 2.0);
+        JENNY_MOVEMENT_SPEED = b.comment("Velocidade ANDANDO (aceita decimais, ex.: 0.25). Jogador ~0.1.")
+                .defineInRange("movementSpeed", 0.25, 0.0, 2.0);
+        JENNY_RUN_SPEED = b.comment("Velocidade CORRENDO (ao perseguir alvo ou seguir jogador em sprint).")
+                .defineInRange("runSpeed", 0.4, 0.0, 2.0);
         JENNY_FOLLOW_RANGE = b.comment("Alcance de percepção / de alvo (blocos).")
                 .defineInRange("followRange", 24.0, 1.0, 256.0);
         b.pop();
@@ -36,8 +40,10 @@ public class Config {
                 .defineInRange("maxHealth", 20.0, 1.0, 1024.0);
         ELLIE_ATTACK_DAMAGE = b.comment("Dano de ataque.")
                 .defineInRange("attackDamage", 3.0, 0.0, 1024.0);
-        ELLIE_MOVEMENT_SPEED = b.comment("Velocidade de movimento (0.3 ~ padrão de mob; jogador ~0.1).")
-                .defineInRange("movementSpeed", 0.3, 0.0, 2.0);
+        ELLIE_MOVEMENT_SPEED = b.comment("Velocidade ANDANDO (aceita decimais, ex.: 0.25). Jogador ~0.1.")
+                .defineInRange("movementSpeed", 0.25, 0.0, 2.0);
+        ELLIE_RUN_SPEED = b.comment("Velocidade CORRENDO (ao perseguir alvo ou seguir jogador em sprint).")
+                .defineInRange("runSpeed", 0.4, 0.0, 2.0);
         ELLIE_FOLLOW_RANGE = b.comment("Alcance de percepção / de alvo (blocos).")
                 .defineInRange("followRange", 24.0, 1.0, 256.0);
         b.pop();
