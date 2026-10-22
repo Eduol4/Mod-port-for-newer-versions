@@ -179,6 +179,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         if (!this.level().isClientSide) {
             if (!this.appliedConfig) {
                 applyConfigAttributes();
+                this.setPersistenceRequired(); // nunca desaparecem (vale também para /summon)
                 this.appliedConfig = true;
             }
             updateMovementStates();

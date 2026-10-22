@@ -47,7 +47,7 @@ public class JennyEntity extends CompanionEntity {
         return Config.JENNY_FOLLOW_RANGE.get();
     }
 
-    // Jenny: som só em "definir casa" e "ir pra casa".
+    // Jenny: som em "parar de seguir", "definir casa" e "ir pra casa".
     @Override
     protected SoundEvent soundFollow() {
         return null;
@@ -55,7 +55,7 @@ public class JennyEntity extends CompanionEntity {
 
     @Override
     protected SoundEvent soundStop() {
-        return null;
+        return ModSounds.JENNY_SADOH.get();
     }
 
     @Override

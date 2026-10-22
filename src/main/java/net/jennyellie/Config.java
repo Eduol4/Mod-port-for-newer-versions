@@ -19,8 +19,21 @@ public class Config {
     public static final ForgeConfigSpec.DoubleValue ELLIE_RUN_SPEED;
     public static final ForgeConfigSpec.DoubleValue ELLIE_FOLLOW_RANGE;
 
+    public static final ForgeConfigSpec.BooleanValue NATURAL_SPAWN_ENABLED;
+    public static final ForgeConfigSpec.DoubleValue SPAWN_CHANCE;
+    public static final ForgeConfigSpec.IntValue SPAWN_SEARCH_RADIUS;
+
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
+
+        b.comment("Spawn natural perto de aldeões (limite de 1 Jenny e 1 Ellie por mundo).").push("spawning");
+        NATURAL_SPAWN_ENABLED = b.comment("Ligar/desligar o spawn natural perto de aldeões.")
+                .define("naturalSpawnEnabled", true);
+        SPAWN_CHANCE = b.comment("Chance por verificação (~a cada 10s) de spawnar, quando há aldeão por perto e a vaga está livre.")
+                .defineInRange("spawnChance", 0.15, 0.0, 1.0);
+        SPAWN_SEARCH_RADIUS = b.comment("Raio (blocos) em volta dos jogadores para procurar aldeões.")
+                .defineInRange("searchRadius", 48, 8, 128);
+        b.pop();
 
         b.comment("Atributos da Jenny").push("jenny");
         JENNY_MAX_HEALTH = b.comment("HP máximo (1 coração = 2).")
