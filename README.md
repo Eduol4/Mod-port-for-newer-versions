@@ -3,9 +3,13 @@
 Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
 Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 11
+## ⚠️ Status: Milestone 12
 
 **Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
+
+### Novidades da Milestone 12
+- **Teleport pra casa sem o atraso de 1s** — teletransporta assim que a animação da pearl termina.
+- **Balde da Ellie dá buff:** cada balde de leite tirado dela também lhe concede **Força I + Regeneração I por 30s**, reiniciando a cada novo balde.
 
 ### Novidades da Milestone 11
 - **Casa é individual** (cada uma tem a sua) — já era assim, confirmado.

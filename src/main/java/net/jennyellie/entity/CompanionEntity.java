@@ -85,8 +85,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     private int teleportHomeTick; // > 0 = teletransporte pra casa agendado
     private boolean appliedConfig = false;
 
-    // ~4,58s de animação (throwpearl) + ~1s de atraso.
-    private static final int TELEPORT_HOME_DELAY = 112;
+    // ~4,58s de animação (throwpearl), sem atraso extra.
+    private static final int TELEPORT_HOME_DELAY = 92;
     private static final double WALK_HOME_MAX_SQR = 24.0D * 24.0D;
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);

@@ -8,6 +8,8 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.player.Player;
@@ -59,6 +61,9 @@ public class EllieEntity extends CompanionEntity {
             this.level().broadcastEntityEvent(this, (byte) 7); // corações
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
                     ModSounds.ELLIE_GIGGLE.get(), SoundSource.NEUTRAL, 1.0F, 1.0F);
+            // Buff temporário (reinicia a cada balde): Força I + Regeneração I por 30s.
+            this.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 600, 0));
+            this.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 600, 0));
         }
         return InteractionResult.sidedSuccess(this.level().isClientSide);
     }
