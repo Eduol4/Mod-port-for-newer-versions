@@ -40,7 +40,6 @@ import net.minecraft.world.entity.ai.goal.target.OwnerHurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.OwnerHurtTargetGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraftforge.api.distmarker.Dist;
@@ -59,8 +58,6 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * Base das companheiras (Jenny/Ellie).
  */
 public abstract class CompanionEntity extends TamableAnimal implements GeoEntity {
-
-    public static final boolean TAMING_ITEM_ENABLED = false;
 
     private static final EntityDataAccessor<Boolean> DATA_FOLLOWING =
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
@@ -98,6 +95,9 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     protected abstract SoundEvent soundStop();
     protected abstract SoundEvent soundSetHome();
     protected abstract SoundEvent soundGoHome();
+
+    /** Chance de domesticação (0..1) para o item na mão; 0 = não é item de domesticação. */
+    protected abstract double getTameChance(ItemStack stack);
 
     /** Só a Ellie tem animações de agachar. */
     protected boolean canCrouch() {
@@ -163,7 +163,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     @Nullable
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty,
                                         MobSpawnType reason, @Nullable SpawnGroupData data, @Nullable CompoundTag tag) {
-        this.setTame(true);
+        // Nascem NÃO domesticadas; o jogador precisa domesticá-las.
         this.setPersistenceRequired();
         applyConfigAttributes();
         this.setHealth(this.getMaxHealth());
@@ -310,10 +310,28 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
 
-        if (TAMING_ITEM_ENABLED && !this.isTame() && stack.is(Items.DIAMOND)) {
-            return tameWithItem(player, stack);
+        if (!this.isTame()) {
+            double chance = getTameChance(stack);
+            if (chance > 0.0) {
+                if (!player.getAbilities().instabuild) {
+                    stack.shrink(1);
+                }
+                if (!this.level().isClientSide) {
+                    if (this.random.nextDouble() < chance) {
+                        this.tame(player);                 // define dono + domesticada
+                        this.setFollowing(false);
+                        this.level().broadcastEntityEvent(this, (byte) 7); // corações
+                    } else {
+                        this.level().broadcastEntityEvent(this, (byte) 6); // fumaça
+                    }
+                }
+                return InteractionResult.sidedSuccess(this.level().isClientSide);
+            }
+            // Não domesticada e sem item de domesticação: nada acontece.
+            return InteractionResult.PASS;
         }
 
+        // Domesticada: para, encara o jogador e abre o menu.
         if (!this.level().isClientSide) {
             if (this.getTarget() == null) {
                 this.awaitPlayerId = player.getUUID();
@@ -324,21 +342,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         } else {
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                     () -> () -> net.jennyellie.client.ClientHooks.openCompanionMenu(this));
-        }
-        return InteractionResult.sidedSuccess(this.level().isClientSide);
-    }
-
-    private InteractionResult tameWithItem(Player player, ItemStack stack) {
-        if (!player.getAbilities().instabuild) {
-            stack.shrink(1);
-        }
-        if (!this.level().isClientSide) {
-            if (this.random.nextInt(3) == 0) {
-                this.tame(player);
-                this.level().broadcastEntityEvent(this, (byte) 7);
-            } else {
-                this.level().broadcastEntityEvent(this, (byte) 6);
-            }
         }
         return InteractionResult.sidedSuccess(this.level().isClientSide);
     }

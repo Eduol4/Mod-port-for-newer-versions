@@ -3,9 +3,14 @@
 Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
 Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 7
+## ⚠️ Status: Milestone 8
 
 **Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
+
+### Novidades da Milestone 8
+- **Domesticação de verdade:** elas nascem **não domesticadas** — clicar não faz nada (sem menu/comandos/proteção). É preciso domesticar primeiro, clicando com itens específicos (cada um com sua chance). Falha → fumaça; sucesso → corações (como o lobo). Já domesticada, esses itens só abrem o menu.
+  - **Jenny:** flores (dandelion 5%, poppy 5.5%, allium 7%, lily of the valley 10%, wither rose 50%, …), barra de ouro 25%, pérola de ender 33%, olho de ender 40%, diamante 100%.
+  - **Ellie:** lilac 10%, rose bush 12%, peony 10%, sunflower 10%, jarro de mel 15%, favo de mel 15%.
 
 ### Novidades da Milestone 7
 - **Spawn natural perto de aldeões:** onde há aldeões (num raio dos jogadores), há chance de Jenny/Ellie aparecerem. Limite de **1 Jenny e 1 Ellie por mundo**; a vaga só reabre quando a respectiva morre. Ovo/comando não contam no limite. Configurável em `[spawning]` do config.

@@ -1,16 +1,36 @@
 package net.jennyellie.entity;
 
+import java.util.HashMap;
+import java.util.Map;
 import net.jennyellie.Config;
 import net.jennyellie.registry.ModSounds;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 
 public class EllieEntity extends CompanionEntity {
 
+    private static final Map<Item, Double> TAME_CHANCES = new HashMap<>();
+    static {
+        TAME_CHANCES.put(Items.LILAC, 0.10);
+        TAME_CHANCES.put(Items.ROSE_BUSH, 0.12);
+        TAME_CHANCES.put(Items.PEONY, 0.10);
+        TAME_CHANCES.put(Items.SUNFLOWER, 0.10);
+        TAME_CHANCES.put(Items.HONEY_BOTTLE, 0.15);
+        TAME_CHANCES.put(Items.HONEYCOMB, 0.15);
+    }
+
     public EllieEntity(EntityType<? extends EllieEntity> type, Level level) {
         super(type, level);
+    }
+
+    @Override
+    protected double getTameChance(ItemStack stack) {
+        return TAME_CHANCES.getOrDefault(stack.getItem(), 0.0);
     }
 
     public static AttributeSupplier.Builder createAttributes() {

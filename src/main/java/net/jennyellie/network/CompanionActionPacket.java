@@ -39,8 +39,8 @@ public class CompanionActionPacket {
             if (!(e instanceof CompanionEntity companion)) {
                 return;
             }
-            // Evita comandar à distância / por pacotes forjados.
-            if (companion.distanceToSqr(player) > 12.0D * 12.0D) {
+            // Evita comandar à distância / por pacotes forjados, ou antes de domesticar.
+            if (!companion.isTame() || companion.distanceToSqr(player) > 12.0D * 12.0D) {
                 return;
             }
             switch (msg.action) {
