@@ -3,9 +3,14 @@
 Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
 Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 3
+## ⚠️ Status: Milestone 4
 
 **Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
+
+### Novidades da Milestone 4
+- **Config de atributos:** arquivo `config/jennyellie-common.toml` (gerado no 1º run) com HP, dano, velocidade e alcance de cada uma — edite sem mexer no `.jar`.
+- **Para e encara ao clicar:** clique direito → ela para e vira de frente pra você (~5s, aguardando comando), exceto se estiver em combate.
+- **Etiqueta fixa:** nome "Jenny"/"Ellie" sempre visível em qualquer spawn; name tag não renomeia (só abre o menu).
 
 ### Novidades da Milestone 3
 - **Ossos escondidos por padrão:** o modelo original traz ossos que o renderizador do mod controlava manualmente. Agora são escondidos: o boneco masculino (`steve`) que aparecia na frente, a "armadura de diamante" cosmética (ossos `armor*`), os itens (`items`) e peças anatômicas NSFW (`cum`/`vagina`). Quando implementarmos equipamento, os ossos de armadura voltam a aparecer de forma condicional.
