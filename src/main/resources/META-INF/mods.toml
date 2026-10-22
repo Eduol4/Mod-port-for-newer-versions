@@ -14,21 +14,21 @@ Todo o conteúdo NSFW do mod original foi removido.
 
 [[dependencies.jennyellie]]
     modId="forge"
-    type="required"
+    mandatory=true
     versionRange="${forge_version_range}"
     ordering="NONE"
     side="BOTH"
 
 [[dependencies.jennyellie]]
     modId="minecraft"
-    type="required"
+    mandatory=true
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"
 
 [[dependencies.jennyellie]]
     modId="geckolib"
-    type="required"
+    mandatory=true
     versionRange="[4.4,)"
     ordering="AFTER"
     side="BOTH"
