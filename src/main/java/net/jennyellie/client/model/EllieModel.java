@@ -3,9 +3,8 @@ package net.jennyellie.client.model;
 import net.jennyellie.JennyEllieMod;
 import net.jennyellie.entity.EllieEntity;
 import net.minecraft.resources.ResourceLocation;
-import software.bernie.geckolib.model.GeoModel;
 
-public class EllieModel extends GeoModel<EllieEntity> {
+public class EllieModel extends CompanionGeoModel<EllieEntity> {
     @Override
     public ResourceLocation getModelResource(EllieEntity animatable) {
         return new ResourceLocation(JennyEllieMod.MODID, "geo/entity/ellie.geo.json");

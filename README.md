@@ -3,9 +3,12 @@
 Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
 Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 2
+## ⚠️ Status: Milestone 3
 
 **Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
+
+### Novidades da Milestone 3
+- **Ossos escondidos por padrão:** o modelo original traz ossos que o renderizador do mod controlava manualmente. Agora são escondidos: o boneco masculino (`steve`) que aparecia na frente, a "armadura de diamante" cosmética (ossos `armor*`), os itens (`items`) e peças anatômicas NSFW (`cum`/`vagina`). Quando implementarmos equipamento, os ossos de armadura voltam a aparecer de forma condicional.
 
 ### Novidades da Milestone 2
 - **Correção de modelo/textura:** os geo declaravam `texture_width=64` mas a textura é 4096×4096. Ajustado (UVs reescalados) para o GeckoLib 4 mapear certo.
