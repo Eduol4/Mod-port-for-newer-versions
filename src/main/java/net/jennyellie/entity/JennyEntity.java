@@ -33,6 +33,7 @@ public class JennyEntity extends CompanionEntity {
         TAME_CHANCES.put(Items.ENDER_PEARL, 0.33);
         TAME_CHANCES.put(Items.ENDER_EYE, 0.40);
         TAME_CHANCES.put(Items.DIAMOND, 1.00);
+        TAME_CHANCES.put(Items.TORCHFLOWER, 1.00);
     }
 
     public JennyEntity(EntityType<? extends JennyEntity> type, Level level) {
@@ -97,5 +98,10 @@ public class JennyEntity extends CompanionEntity {
     @Override
     protected SoundEvent soundGoHome() {
         return ModSounds.JENNY_SIGH.get();
+    }
+
+    @Override
+    protected SoundEvent soundTameSuccess() {
+        return ModSounds.JENNY_HAPPYOH.get();
     }
 }

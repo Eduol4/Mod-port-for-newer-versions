@@ -5,10 +5,15 @@ import java.util.Map;
 import net.jennyellie.Config;
 import net.jennyellie.registry.ModSounds;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemUtils;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 
@@ -22,6 +27,9 @@ public class EllieEntity extends CompanionEntity {
         TAME_CHANCES.put(Items.SUNFLOWER, 0.10);
         TAME_CHANCES.put(Items.HONEY_BOTTLE, 0.15);
         TAME_CHANCES.put(Items.HONEYCOMB, 0.15);
+        TAME_CHANCES.put(Items.ENDER_PEARL, 0.22);
+        TAME_CHANCES.put(Items.ENDER_EYE, 0.30);
+        TAME_CHANCES.put(Items.PITCHER_PLANT, 1.00);
     }
 
     public EllieEntity(EntityType<? extends EllieEntity> type, Level level) {
@@ -31,6 +39,29 @@ public class EllieEntity extends CompanionEntity {
     @Override
     protected double getTameChance(ItemStack stack) {
         return TAME_CHANCES.getOrDefault(stack.getItem(), 0.0);
+    }
+
+    /**
+     * Balde vazio: domestica na hora (se ainda não for), vira balde de leite, solta corações
+     * e toca um som. Funciona mesmo já domesticada (e aí NÃO abre o menu).
+     */
+    @Override
+    protected InteractionResult trySpecialInteract(Player player, InteractionHand hand, ItemStack stack) {
+        if (!stack.is(Items.BUCKET)) {
+            return null;
+        }
+        if (!this.level().isClientSide) {
+            if (!this.isTame()) {
+                this.tame(player);
+                this.setFollowing(false);
+            }
+            ItemStack milk = ItemUtils.createFilledResult(stack, player, Items.MILK_BUCKET.getDefaultInstance());
+            player.setItemInHand(hand, milk);
+            this.level().broadcastEntityEvent(this, (byte) 7); // corações
+            this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                    ModSounds.ELLIE_GIGGLE.get(), SoundSource.NEUTRAL, 1.0F, 1.0F);
+        }
+        return InteractionResult.sidedSuccess(this.level().isClientSide);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -91,5 +122,10 @@ public class EllieEntity extends CompanionEntity {
     @Override
     protected SoundEvent soundGoHome() {
         return ModSounds.ELLIE_SIGH.get();
+    }
+
+    @Override
+    protected SoundEvent soundTameSuccess() {
+        return ModSounds.ELLIE_HAPPYOH.get();
     }
 }

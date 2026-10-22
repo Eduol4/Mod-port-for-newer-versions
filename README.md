@@ -3,9 +3,15 @@
 Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
 Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 8
+## ⚠️ Status: Milestone 9
 
 **Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
+
+### Novidades da Milestone 9
+- **Som ao domesticar com sucesso** (happyoh) para as duas.
+- **Jenny:** + Torchflower (100%).
+- **Ellie:** + Pérola de Ender (22%), Olho de Ender (30%), Pitcher Plant (100%).
+- **Balde da Ellie:** clicar nela com um **balde vazio** domestica na hora (100%), vira **balde de leite**, solta corações e toca um som (giggle). Funciona mesmo já domesticada — e nesse caso **não abre o menu**. (Em modo criativo o balde não vira leite, como no comportamento padrão do jogo, mas a domesticação/efeitos acontecem.)
 
 ### Novidades da Milestone 8
 - **Domesticação de verdade:** elas nascem **não domesticadas** — clicar não faz nada (sem menu/comandos/proteção). É preciso domesticar primeiro, clicando com itens específicos (cada um com sua chance). Falha → fumaça; sucesso → corações (como o lobo). Já domesticada, esses itens só abrem o menu.

@@ -99,6 +99,18 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     /** Chance de domesticação (0..1) para o item na mão; 0 = não é item de domesticação. */
     protected abstract double getTameChance(ItemStack stack);
 
+    /** Som ao domesticar com sucesso (pode ser null). */
+    protected abstract SoundEvent soundTameSuccess();
+
+    /**
+     * Interação especial que roda ANTES da lógica normal (domesticar / menu), valendo
+     * domesticada ou não. Retorna um resultado para consumir o clique, ou null para seguir
+     * com a lógica normal. Usado, por ex., pelo balde da Ellie.
+     */
+    protected InteractionResult trySpecialInteract(Player player, InteractionHand hand, ItemStack stack) {
+        return null;
+    }
+
     /** Só a Ellie tem animações de agachar. */
     protected boolean canCrouch() {
         return false;
@@ -310,6 +322,12 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
 
+        // Interação especial (ex.: balde da Ellie) tem prioridade.
+        InteractionResult special = trySpecialInteract(player, hand, stack);
+        if (special != null) {
+            return special;
+        }
+
         if (!this.isTame()) {
             double chance = getTameChance(stack);
             if (chance > 0.0) {
@@ -318,9 +336,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
                 }
                 if (!this.level().isClientSide) {
                     if (this.random.nextDouble() < chance) {
-                        this.tame(player);                 // define dono + domesticada
-                        this.setFollowing(false);
-                        this.level().broadcastEntityEvent(this, (byte) 7); // corações
+                        tameSuccess(player);
                     } else {
                         this.level().broadcastEntityEvent(this, (byte) 6); // fumaça
                     }
@@ -344,6 +360,18 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
                     () -> () -> net.jennyellie.client.ClientHooks.openCompanionMenu(this));
         }
         return InteractionResult.sidedSuccess(this.level().isClientSide);
+    }
+
+    /** Domestica com dono = player, corações e som de sucesso. Chamar no lado servidor. */
+    protected void tameSuccess(Player player) {
+        this.tame(player);
+        this.setFollowing(false);
+        this.level().broadcastEntityEvent(this, (byte) 7); // corações
+        SoundEvent s = soundTameSuccess();
+        if (s != null) {
+            this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                    s, SoundSource.NEUTRAL, 1.0F, 1.0F);
+        }
     }
 
     @Override
