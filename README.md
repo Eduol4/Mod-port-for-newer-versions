@@ -3,9 +3,14 @@
 Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
 Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 10
+## ⚠️ Status: Milestone 11
 
 **Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
+
+### Novidades da Milestone 11
+- **Casa é individual** (cada uma tem a sua) — já era assim, confirmado.
+- **"Go home" desliga o seguir na hora** — já era assim, confirmado.
+- **Teletransporte pra casa:** se a casa estiver longe (>24 blocos) ou inacessível (chunk não carregado, caminho bloqueado), ela para de tentar andar, faz a **animação de jogar ender pearl** e se **teletransporta pra casa ~1s após a animação** (com partículas e som). Perto e acessível, continua indo a pé.
 
 ### Novidades da Milestone 10
 - **Abrem e fecham portas** como aldeões.

@@ -5,6 +5,7 @@ import java.util.UUID;
 import net.jennyellie.JennyEllieMod;
 import net.jennyellie.network.CompanionActionPacket;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -13,6 +14,7 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.InteractionHand;
@@ -46,6 +48,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.pathfinder.Path;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import org.jetbrains.annotations.Nullable;
@@ -79,7 +82,12 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
 
     private int calmUntilTick;   // até quando (não domesticada) continua revidando
     private int regenTimer;
+    private int teleportHomeTick; // > 0 = teletransporte pra casa agendado
     private boolean appliedConfig = false;
+
+    // ~4,58s de animação (throwpearl) + ~1s de atraso.
+    private static final int TELEPORT_HOME_DELAY = 112;
+    private static final double WALK_HOME_MAX_SQR = 24.0D * 24.0D;
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
@@ -232,7 +240,55 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             updateMovementStates();
             updateCalmDown();
             updateRegen();
+            updateTeleportHome();
         }
+    }
+
+    private void updateTeleportHome() {
+        if (this.teleportHomeTick == 0) {
+            return;
+        }
+        if (this.isFollowing() || !this.hasHome()) {
+            this.teleportHomeTick = 0; // cancela
+        } else if (this.tickCount >= this.teleportHomeTick) {
+            performTeleportHome();
+        } else {
+            this.getNavigation().stop(); // parada durante a animação
+        }
+    }
+
+    public boolean isTeleportingHome() {
+        return this.teleportHomeTick != 0;
+    }
+
+    /** Inicia a sequência: animação de jogar pearl + teleport agendado. */
+    public void beginTeleportHome() {
+        if (this.teleportHomeTick != 0) {
+            return;
+        }
+        this.triggerAnim("action", "throwpearl");
+        this.teleportHomeTick = this.tickCount + TELEPORT_HOME_DELAY;
+        this.getNavigation().stop();
+    }
+
+    private void performTeleportHome() {
+        BlockPos h = this.homePos;
+        this.teleportHomeTick = 0;
+        if (h == null) {
+            return;
+        }
+        spawnTeleportFx(this.getX(), this.getY() + 1.0D, this.getZ());
+        this.moveTo(h.getX() + 0.5D, h.getY(), h.getZ() + 0.5D, this.getYRot(), this.getXRot());
+        this.getNavigation().stop();
+        spawnTeleportFx(h.getX() + 0.5D, h.getY() + 1.0D, h.getZ() + 0.5D);
+    }
+
+    private void spawnTeleportFx(double x, double y, double z) {
+        if (this.level() instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.PORTAL, x, y, z, 24, 0.5D, 0.6D, 0.5D, 0.1D);
+        }
+        this.level().playSound(null, x, y, z,
+                SoundEvents.ENDERMAN_TELEPORT, SoundSource.NEUTRAL, 1.0F, 1.0F);
     }
 
     private void updateMovementStates() {
@@ -486,6 +542,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
                 .triggerableAnim("attack0", RawAnimation.begin().thenPlay(b + "attack0"))
                 .triggerableAnim("attack1", RawAnimation.begin().thenPlay(b + "attack1"))
                 .triggerableAnim("attack2", RawAnimation.begin().thenPlay(b + "attack2")));
+        controllers.add(new AnimationController<>(this, "action", 0, state -> PlayState.STOP)
+                .triggerableAnim("throwpearl", RawAnimation.begin().thenPlay(b + "throwpearl")));
     }
 
     private PlayState mainPredicate(AnimationState<CompanionEntity> state) {
@@ -576,7 +634,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
 
         @Override
         public boolean canUse() {
-            if (this.companion.isFollowing() || !this.companion.hasHome() || this.companion.isAwaiting()) {
+            if (this.companion.isFollowing() || !this.companion.hasHome()
+                    || this.companion.isAwaiting() || this.companion.isTeleportingHome()) {
                 return false;
             }
             return this.companion.blockPosition().distSqr(this.companion.getHomePos()) > this.startDistSqr;
@@ -586,6 +645,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         public boolean canContinueToUse() {
             return !this.companion.isFollowing()
                     && !this.companion.isAwaiting()
+                    && !this.companion.isTeleportingHome()
                     && this.companion.hasHome()
                     && !this.companion.getNavigation().isDone()
                     && this.companion.blockPosition().distSqr(this.companion.getHomePos()) > 4.0D;
@@ -594,7 +654,15 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         @Override
         public void start() {
             BlockPos h = this.companion.getHomePos();
-            this.companion.getNavigation().moveTo(h.getX() + 0.5D, h.getY(), h.getZ() + 0.5D, this.speed);
+            double dist2 = this.companion.blockPosition().distSqr(h);
+            Path path = this.companion.getNavigation().createPath(h, 0);
+            boolean reachable = path != null && path.canReach();
+
+            if (dist2 <= WALK_HOME_MAX_SQR && reachable) {
+                this.companion.getNavigation().moveTo(path, this.speed); // anda até em casa
+            } else {
+                this.companion.beginTeleportHome();                      // longe/inacessível: teletransporta
+            }
         }
 
         @Override
