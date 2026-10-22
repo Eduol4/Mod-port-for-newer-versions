@@ -3,9 +3,19 @@
 Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
 Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 9
+## ⚠️ Status: Milestone 10
 
 **Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
+
+### Novidades da Milestone 10
+- **Abrem e fecham portas** como aldeões.
+- **Defesa própria (não domesticadas):** revidam quem as ataca (inclusive o jogador) por ~8-10s e depois se acalmam. Domesticar durante isso faz parar de atacar na hora.
+- **Ao domesticar, já entram em "seguir" por padrão.**
+- **Botão único Seguir/Parar:** o mesmo botão troca de rótulo conforme o estado.
+- **Só defendem o dono quando estão seguindo** (a defesa própria é sempre).
+- **Domesticadas não levam golpes do jogador** (botão esquerdo não causa dano).
+- **Não atacam animais domesticados** (ex.: se o dono acerta um lobo sem querer).
+- **Regeneração:** não domesticadas +1 HP/5s; domesticadas +2 HP/4s.
 
 ### Novidades da Milestone 9
 - **Som ao domesticar com sucesso** (happyoh) para as duas.

@@ -17,6 +17,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -33,11 +34,14 @@ import net.minecraft.world.entity.ai.goal.FollowOwnerGoal;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.OpenDoorGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.OwnerHurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.OwnerHurtTargetGoal;
+import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -73,6 +77,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     private UUID awaitPlayerId;
     private int awaitUntilTick;
 
+    private int calmUntilTick;   // até quando (não domesticada) continua revidando
+    private int regenTimer;
     private boolean appliedConfig = false;
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
@@ -95,25 +101,17 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     protected abstract SoundEvent soundStop();
     protected abstract SoundEvent soundSetHome();
     protected abstract SoundEvent soundGoHome();
-
-    /** Chance de domesticação (0..1) para o item na mão; 0 = não é item de domesticação. */
-    protected abstract double getTameChance(ItemStack stack);
-
-    /** Som ao domesticar com sucesso (pode ser null). */
     protected abstract SoundEvent soundTameSuccess();
 
-    /**
-     * Interação especial que roda ANTES da lógica normal (domesticar / menu), valendo
-     * domesticada ou não. Retorna um resultado para consumir o clique, ou null para seguir
-     * com a lógica normal. Usado, por ex., pelo balde da Ellie.
-     */
-    protected InteractionResult trySpecialInteract(Player player, InteractionHand hand, ItemStack stack) {
-        return null;
-    }
+    protected abstract double getTameChance(ItemStack stack);
 
-    /** Só a Ellie tem animações de agachar. */
     protected boolean canCrouch() {
         return false;
+    }
+
+    /** Interação especial antes da lógica normal (ex.: balde da Ellie). null = segue normal. */
+    protected InteractionResult trySpecialInteract(Player player, InteractionHand hand, ItemStack stack) {
+        return null;
     }
 
     private Component getFixedName() {
@@ -141,20 +139,58 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.entityData.define(DATA_CROUCHING, false);
     }
 
+    /** Navegação que atravessa e abre portas, como aldeões. */
+    @Override
+    protected PathNavigation createNavigation(Level level) {
+        GroundPathNavigation nav = new GroundPathNavigation(this, level);
+        nav.setCanOpenDoors(true);
+        nav.setCanPassDoors(true);
+        return nav;
+    }
+
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new AwaitCommandGoal(this));
-        this.goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.1D, true));
-        this.goalSelector.addGoal(3, new CompanionFollowOwnerGoal(this, 1.15D, 6.0F, 2.0F));
-        this.goalSelector.addGoal(4, new ReturnHomeGoal(this, 1.0D, 10.0D));
-        this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 1.0D));
-        this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 6.0F));
-        this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(1, new OpenDoorGoal(this, true)); // abre e fecha portas
+        this.goalSelector.addGoal(2, new AwaitCommandGoal(this));
+        this.goalSelector.addGoal(3, new MeleeAttackGoal(this, 1.1D, true));
+        this.goalSelector.addGoal(4, new CompanionFollowOwnerGoal(this, 1.15D, 6.0F, 2.0F));
+        this.goalSelector.addGoal(5, new ReturnHomeGoal(this, 1.0D, 10.0D));
+        this.goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 1.0D));
+        this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 6.0F));
+        this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
 
-        this.targetSelector.addGoal(1, new OwnerHurtByTargetGoal(this));
-        this.targetSelector.addGoal(2, new OwnerHurtTargetGoal(this));
-        this.targetSelector.addGoal(3, new HurtByTargetGoal(this));
+        // Defesa própria: sempre (domesticada ou não).
+        this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
+        // Defesa do dono / alvo do dono: só quando está seguindo.
+        this.targetSelector.addGoal(2, new FollowingOwnerHurtByTargetGoal(this));
+        this.targetSelector.addGoal(3, new FollowingOwnerHurtTargetGoal(this));
+    }
+
+    /** Não ataca animais domesticados nem jogadores quando defende o dono. */
+    @Override
+    public boolean wantsToAttack(LivingEntity target, LivingEntity owner) {
+        if (target instanceof TamableAnimal tamable && tamable.isTame()) {
+            return false;
+        }
+        if (target instanceof Player) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        // Domesticada: imune a golpes de jogador.
+        if (this.isTame() && source.getEntity() instanceof Player) {
+            return false;
+        }
+        boolean result = super.hurt(source, amount);
+        // Não domesticada: revida por ~8-10s a partir do último golpe.
+        if (result && !this.isTame() && !this.level().isClientSide && source.getEntity() instanceof LivingEntity) {
+            this.calmUntilTick = this.tickCount + 160 + this.random.nextInt(41);
+        }
+        return result;
     }
 
     private void applyConfigAttributes() {
@@ -175,7 +211,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     @Nullable
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty,
                                         MobSpawnType reason, @Nullable SpawnGroupData data, @Nullable CompoundTag tag) {
-        // Nascem NÃO domesticadas; o jogador precisa domesticá-las.
         this.setPersistenceRequired();
         applyConfigAttributes();
         this.setHealth(this.getMaxHealth());
@@ -191,14 +226,15 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         if (!this.level().isClientSide) {
             if (!this.appliedConfig) {
                 applyConfigAttributes();
-                this.setPersistenceRequired(); // nunca desaparecem (vale também para /summon)
+                this.setPersistenceRequired();
                 this.appliedConfig = true;
             }
             updateMovementStates();
+            updateCalmDown();
+            updateRegen();
         }
     }
 
-    /** Atualiza os estados sincronizados usados pelas animações. */
     private void updateMovementStates() {
         boolean chasing = this.getTarget() != null;
         boolean ownerSprinting = this.isFollowing()
@@ -208,7 +244,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             this.entityData.set(DATA_RUNNING, running);
         }
 
-        // Velocidade diferente andando vs correndo.
         double desiredSpeed = running ? cfgRunSpeed() : cfgMovementSpeed();
         AttributeInstance speed = this.getAttribute(Attributes.MOVEMENT_SPEED);
         if (speed != null && speed.getBaseValue() != desiredSpeed) {
@@ -221,7 +256,29 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         }
     }
 
-    /** Verdadeiro quando há um bloco logo acima da hitbox (teto de 2 blocos de altura). */
+    /** Não domesticada "se acalma" e para de revidar passado o tempo. */
+    private void updateCalmDown() {
+        if (!this.isTame() && this.calmUntilTick != 0 && this.tickCount >= this.calmUntilTick) {
+            this.setTarget(null);
+            this.setLastHurtByMob(null);
+            this.calmUntilTick = 0;
+        }
+    }
+
+    private void updateRegen() {
+        if (this.isAlive() && this.getHealth() < this.getMaxHealth()) {
+            this.regenTimer++;
+            int interval = this.isTame() ? 80 : 100;   // 4s domesticada / 5s não
+            float amount = this.isTame() ? 2.0F : 1.0F;
+            if (this.regenTimer >= interval) {
+                this.heal(amount);
+                this.regenTimer = 0;
+            }
+        } else {
+            this.regenTimer = 0;
+        }
+    }
+
     private boolean isUnderLowCeiling() {
         BlockPos above = this.blockPosition().above(2);
         return !this.level().getBlockState(above).getCollisionShape(this.level(), above).isEmpty();
@@ -254,7 +311,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     }
 
     public void commandFollow(Player player) {
-        this.setTame(true);
         this.setOwnerUUID(player.getUUID());
         this.setFollowing(true);
         this.setOrderedToSit(false);
@@ -263,6 +319,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
 
     public void commandStopFollow() {
         this.setFollowing(false);
+        this.setTarget(null); // deixa de defender o dono ao parar de seguir
         clearAwait();
     }
 
@@ -279,20 +336,20 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         clearAwait();
     }
 
-    /** Mensagem no chat + som, após uma ação do menu. */
     public void onCommandFeedback(ServerPlayer player, CompanionActionPacket.Action action) {
         String key = switch (action) {
             case FOLLOW -> "follow";
             case STOP -> "stop";
             case SET_HOME -> "sethome";
             case GO_HOME -> "gohome";
+            case TOGGLE_FOLLOW -> "follow";
         };
         Component msg = Component.translatable(
                 "message." + JennyEllieMod.MODID + "." + animBase() + "." + key, player.getDisplayName());
         player.sendSystemMessage(Component.translatable("chat.type.text", this.getDisplayName(), msg));
 
         SoundEvent sound = switch (action) {
-            case FOLLOW -> soundFollow();
+            case FOLLOW, TOGGLE_FOLLOW -> soundFollow();
             case STOP -> soundStop();
             case SET_HOME -> soundSetHome();
             case GO_HOME -> soundGoHome();
@@ -322,7 +379,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
 
-        // Interação especial (ex.: balde da Ellie) tem prioridade.
         InteractionResult special = trySpecialInteract(player, hand, stack);
         if (special != null) {
             return special;
@@ -343,11 +399,9 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
                 }
                 return InteractionResult.sidedSuccess(this.level().isClientSide);
             }
-            // Não domesticada e sem item de domesticação: nada acontece.
             return InteractionResult.PASS;
         }
 
-        // Domesticada: para, encara o jogador e abre o menu.
         if (!this.level().isClientSide) {
             if (this.getTarget() == null) {
                 this.awaitPlayerId = player.getUUID();
@@ -362,10 +416,17 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         return InteractionResult.sidedSuccess(this.level().isClientSide);
     }
 
-    /** Domestica com dono = player, corações e som de sucesso. Chamar no lado servidor. */
-    protected void tameSuccess(Player player) {
+    /** Aplica o estado domesticado (dono, seguir por padrão, sem alvo). Sem efeitos visuais. */
+    protected void applyTamed(Player player) {
         this.tame(player);
-        this.setFollowing(false);
+        this.setFollowing(true);
+        this.setTarget(null);
+        this.calmUntilTick = 0;
+    }
+
+    /** Domestica com corações e som de sucesso. Chamar no lado servidor. */
+    protected void tameSuccess(Player player) {
+        applyTamed(player);
         this.level().broadcastEntityEvent(this, (byte) 7); // corações
         SoundEvent s = soundTameSuccess();
         if (s != null) {
@@ -539,6 +600,36 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         @Override
         public void stop() {
             this.companion.getNavigation().stop();
+        }
+    }
+
+    /** Defende o dono apenas quando está seguindo. */
+    static class FollowingOwnerHurtByTargetGoal extends OwnerHurtByTargetGoal {
+        private final CompanionEntity companion;
+
+        FollowingOwnerHurtByTargetGoal(CompanionEntity companion) {
+            super(companion);
+            this.companion = companion;
+        }
+
+        @Override
+        public boolean canUse() {
+            return this.companion.isFollowing() && super.canUse();
+        }
+    }
+
+    /** Ataca o alvo do dono apenas quando está seguindo. */
+    static class FollowingOwnerHurtTargetGoal extends OwnerHurtTargetGoal {
+        private final CompanionEntity companion;
+
+        FollowingOwnerHurtTargetGoal(CompanionEntity companion) {
+            super(companion);
+            this.companion = companion;
+        }
+
+        @Override
+        public boolean canUse() {
+            return this.companion.isFollowing() && super.canUse();
         }
     }
 }

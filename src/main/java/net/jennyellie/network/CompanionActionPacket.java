@@ -10,7 +10,7 @@ import net.minecraftforge.network.NetworkEvent;
 /** Pacote cliente -> servidor com a ação escolhida no menu de opções. */
 public class CompanionActionPacket {
 
-    public enum Action { FOLLOW, STOP, SET_HOME, GO_HOME }
+    public enum Action { FOLLOW, STOP, SET_HOME, GO_HOME, TOGGLE_FOLLOW }
 
     private final int entityId;
     private final Action action;
@@ -44,12 +44,32 @@ public class CompanionActionPacket {
                 return;
             }
             switch (msg.action) {
-                case FOLLOW -> companion.commandFollow(player);
-                case STOP -> companion.commandStopFollow();
-                case SET_HOME -> companion.commandSetHome();
-                case GO_HOME -> companion.commandGoHome();
+                case TOGGLE_FOLLOW -> {
+                    if (companion.isFollowing()) {
+                        companion.commandStopFollow();
+                        companion.onCommandFeedback(player, Action.STOP);
+                    } else {
+                        companion.commandFollow(player);
+                        companion.onCommandFeedback(player, Action.FOLLOW);
+                    }
+                }
+                case FOLLOW -> {
+                    companion.commandFollow(player);
+                    companion.onCommandFeedback(player, Action.FOLLOW);
+                }
+                case STOP -> {
+                    companion.commandStopFollow();
+                    companion.onCommandFeedback(player, Action.STOP);
+                }
+                case SET_HOME -> {
+                    companion.commandSetHome();
+                    companion.onCommandFeedback(player, Action.SET_HOME);
+                }
+                case GO_HOME -> {
+                    companion.commandGoHome();
+                    companion.onCommandFeedback(player, Action.GO_HOME);
+                }
             }
-            companion.onCommandFeedback(player, msg.action);
         });
         ctx.get().setPacketHandled(true);
     }

@@ -25,16 +25,18 @@ public class CompanionMenuScreen extends Screen {
     protected void init() {
         int x = 12;
         int w = 120, h = 20, gap = 4;
-        int y = this.height / 2 - (2 * h + (int) (1.5 * gap));
+        int y = this.height / 2 - (2 * h + gap);
 
-        addRenderableWidget(Button.builder(Component.translatable("action.names.followme"),
-                b -> send(CompanionActionPacket.Action.FOLLOW)).bounds(x, y, w, h).build());
-        addRenderableWidget(Button.builder(Component.translatable("action.names.stopfollowme"),
-                b -> send(CompanionActionPacket.Action.STOP)).bounds(x, y + (h + gap), w, h).build());
+        // Botão único: alterna entre "Seguir" e "Parar de seguir" conforme o estado atual.
+        Component followLabel = this.entity.isFollowing()
+                ? Component.translatable("action.names.stopfollowme")
+                : Component.translatable("action.names.followme");
+        addRenderableWidget(Button.builder(followLabel,
+                b -> send(CompanionActionPacket.Action.TOGGLE_FOLLOW)).bounds(x, y, w, h).build());
         addRenderableWidget(Button.builder(Component.translatable("action.names.setnewhome"),
-                b -> send(CompanionActionPacket.Action.SET_HOME)).bounds(x, y + 2 * (h + gap), w, h).build());
+                b -> send(CompanionActionPacket.Action.SET_HOME)).bounds(x, y + (h + gap), w, h).build());
         addRenderableWidget(Button.builder(Component.translatable("action.names.gohome"),
-                b -> send(CompanionActionPacket.Action.GO_HOME)).bounds(x, y + 3 * (h + gap), w, h).build());
+                b -> send(CompanionActionPacket.Action.GO_HOME)).bounds(x, y + 2 * (h + gap), w, h).build());
     }
 
     private void send(CompanionActionPacket.Action action) {

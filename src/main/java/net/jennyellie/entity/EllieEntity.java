@@ -52,8 +52,7 @@ public class EllieEntity extends CompanionEntity {
         }
         if (!this.level().isClientSide) {
             if (!this.isTame()) {
-                this.tame(player);
-                this.setFollowing(false);
+                applyTamed(player);
             }
             ItemStack milk = ItemUtils.createFilledResult(stack, player, Items.MILK_BUCKET.getDefaultInstance());
             player.setItemInHand(hand, milk);
