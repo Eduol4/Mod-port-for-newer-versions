@@ -89,8 +89,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_THROWING =
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<Boolean> DATA_BREEDING =
-            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
 
     @Nullable
     private BlockPos homePos;
@@ -191,7 +189,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.entityData.define(DATA_BREED_COOLDOWN_SECS, 0);
         this.entityData.define(DATA_HAS_HOME, false);
         this.entityData.define(DATA_THROWING, false);
-        this.entityData.define(DATA_BREEDING, false);
     }
 
     /** Navegação que atravessa e abre portas, como aldeões. */
@@ -299,9 +296,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             if (this.entityData.get(DATA_THROWING) != throwing) {
                 this.entityData.set(DATA_THROWING, throwing);
             }
-            if (this.entityData.get(DATA_BREEDING) != this.breedActive) {
-                this.entityData.set(DATA_BREEDING, this.breedActive);
-            }
             // Deixa de "ir pra casa" ao seguir, sem casa, ou ao chegar.
             if (this.goingHome) {
                 if (this.isFollowing() || !hasHome()) {
@@ -322,11 +316,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     /** Estado sincronizado: está na sequência de teleporte (animação da pearl). */
     public boolean isThrowing() {
         return this.entityData.get(DATA_THROWING);
-    }
-
-    /** Estado sincronizado (cliente): está reproduzindo com um aldeão — usado para o leve "agachar". */
-    public boolean isBreedingPose() {
-        return this.entityData.get(DATA_BREEDING);
     }
 
     public boolean isGoingHome() {
