@@ -3,9 +3,15 @@
 Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
 Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 13
+## ⚠️ Status: Milestone 14
 
 **Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
+
+### Novidades da Milestone 14
+- **Reprodução com aldeão.** Botão "Aldeão" isolado à direita no menu. Ao clicar, a companheira e o aldeão mais próximo (até 16 blocos) se aproximam com corações; em contato por ~3s, nasce um **bebê aldeão**, com som e corações.
+  - **Jenny:** botão habilitado quando domesticada; cooldown de **1 min** após reproduzir. Sem aldeão por perto → som triste + mensagem.
+  - **Ellie:** botão **desabilitado por padrão**; habilita enquanto estiver com **Fraqueza**, ou por **1 min** ao clicar nela com **maçã/cenoura dourada** (consome o item, solta partículas verdes; clicar de novo reinicia o minuto). Cooldown de **5 min** após reproduzir.
+  - O menu mostra o contador de cooldown abaixo do botão quando ativo.
 
 ### Novidades da Milestone 13
 - **Buff da Ellie agora dura 1 minuto** (Força I + Regeneração I).

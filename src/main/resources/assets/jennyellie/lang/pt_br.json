@@ -9,6 +9,10 @@
     "action.names.stopfollowme": "Parar de seguir",
     "action.names.setnewhome": "Definir nova casa",
     "action.names.gohome": "Ir para casa",
+    "action.names.villager": "Aldeão",
+    "gui.jennyellie.cooldown": "%ss",
+    "message.jennyellie.jenny.novillager": "Não há aldeões por perto...",
+    "message.jennyellie.ellie.novillager": "Não há aldeões por perto...",
 
     "message.jennyellie.jenny.follow": "Okay! Estou logo atrás de você %s~",
     "message.jennyellie.jenny.stop": "Ah.. bem.. até mais~",

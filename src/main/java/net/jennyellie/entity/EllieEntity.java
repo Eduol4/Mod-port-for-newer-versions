@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 import net.jennyellie.Config;
 import net.jennyellie.registry.ModSounds;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -49,6 +51,21 @@ public class EllieEntity extends CompanionEntity {
      */
     @Override
     protected InteractionResult trySpecialInteract(Player player, InteractionHand hand, ItemStack stack) {
+        // Maçã/cenoura dourada: habilita o botão de reprodução por 1 min (só domesticada).
+        if (this.isTame() && (stack.is(Items.GOLDEN_APPLE) || stack.is(Items.GOLDEN_CARROT))) {
+            if (!this.level().isClientSide) {
+                if (!player.getAbilities().instabuild) {
+                    stack.shrink(1);
+                }
+                this.breedBoostUntil = this.level().getGameTime() + 1200L; // 1 min
+                if (this.level() instanceof ServerLevel sl) {
+                    sl.sendParticles(ParticleTypes.HAPPY_VILLAGER, this.getX(), this.getY() + 1.0D, this.getZ(),
+                            12, 0.5D, 0.6D, 0.5D, 0.1D);
+                }
+            }
+            return InteractionResult.sidedSuccess(this.level().isClientSide);
+        }
+
         if (!stack.is(Items.BUCKET)) {
             return null;
         }
@@ -131,5 +148,22 @@ public class EllieEntity extends CompanionEntity {
     @Override
     protected SoundEvent soundTameSuccess() {
         return ModSounds.ELLIE_HAPPYOH.get();
+    }
+
+    @Override
+    protected SoundEvent soundSad() {
+        return ModSounds.ELLIE_SADOH.get();
+    }
+
+    @Override
+    protected int breedCooldownTicks() {
+        return 6000; // 5 min
+    }
+
+    /** Ellie só reproduz quando está sob Fraqueza ou dentro de 1 min da maçã/cenoura dourada. */
+    @Override
+    protected boolean isBreedConditionMet() {
+        return this.hasEffect(MobEffects.WEAKNESS)
+                || this.level().getGameTime() < this.breedBoostUntil;
     }
 }

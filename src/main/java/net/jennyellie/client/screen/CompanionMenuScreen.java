@@ -9,12 +9,14 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Menu de opções SFW, no lado esquerdo da tela (como no mod original).
- * As ações NSFW que ficavam à direita foram removidas.
+ * Menu de opções SFW. Ações comuns à esquerda; o botão de reprodução ("villager")
+ * fica isolado à direita, habilitado conforme o estado da companheira.
  */
 public class CompanionMenuScreen extends Screen {
 
     private final CompanionEntity entity;
+    private int breedBtnX;
+    private int breedBtnY;
 
     public CompanionMenuScreen(CompanionEntity entity) {
         super(entity.getDisplayName());
@@ -27,7 +29,6 @@ public class CompanionMenuScreen extends Screen {
         int w = 120, h = 20, gap = 4;
         int y = this.height / 2 - (2 * h + gap);
 
-        // Botão único: alterna entre "Seguir" e "Parar de seguir" conforme o estado atual.
         Component followLabel = this.entity.isFollowing()
                 ? Component.translatable("action.names.stopfollowme")
                 : Component.translatable("action.names.followme");
@@ -37,6 +38,14 @@ public class CompanionMenuScreen extends Screen {
                 b -> send(CompanionActionPacket.Action.SET_HOME)).bounds(x, y + (h + gap), w, h).build());
         addRenderableWidget(Button.builder(Component.translatable("action.names.gohome"),
                 b -> send(CompanionActionPacket.Action.GO_HOME)).bounds(x, y + 2 * (h + gap), w, h).build());
+
+        // Botão de reprodução, isolado à direita.
+        this.breedBtnX = this.width - 12 - w;
+        this.breedBtnY = this.height / 2 - h / 2;
+        Button breed = Button.builder(Component.translatable("action.names.villager"),
+                b -> send(CompanionActionPacket.Action.BREED)).bounds(this.breedBtnX, this.breedBtnY, w, h).build();
+        breed.active = this.entity.isBreedButtonEnabled();
+        addRenderableWidget(breed);
     }
 
     private void send(CompanionActionPacket.Action action) {
@@ -48,6 +57,12 @@ public class CompanionMenuScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
         graphics.drawString(this.font, this.title, 12, this.height / 2 - (2 * 20 + 18), 0xFFFFFF);
+
+        int secs = this.entity.getBreedCooldownSecs();
+        if (secs > 0) {
+            Component cd = Component.translatable("gui.jennyellie.cooldown", secs);
+            graphics.drawString(this.font, cd, this.breedBtnX, this.breedBtnY + 24, 0xFFAAAA);
+        }
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 

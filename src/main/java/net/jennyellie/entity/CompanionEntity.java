@@ -72,6 +72,10 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_CROUCHING =
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_BREED_ENABLED =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> DATA_BREED_COOLDOWN_SECS =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.INT);
 
     @Nullable
     private BlockPos homePos;
@@ -84,6 +88,14 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     private int regenTimer;
     private int teleportHomeTick; // > 0 = teletransporte pra casa agendado
     private boolean appliedConfig = false;
+
+    // Reprodução com aldeão
+    private long breedCooldownUntil;   // gameTime até o fim do cooldown
+    protected long breedBoostUntil;    // gameTime até o fim do "boost" (ex.: maçã/cenoura dourada da Ellie)
+    private boolean breedActive;
+    @Nullable
+    private UUID breedVillagerId;
+    private int breedContactTicks;
 
     // ~4,58s de animação (throwpearl), sem atraso extra.
     private static final int TELEPORT_HOME_DELAY = 92;
@@ -110,8 +122,17 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     protected abstract SoundEvent soundSetHome();
     protected abstract SoundEvent soundGoHome();
     protected abstract SoundEvent soundTameSuccess();
+    protected abstract SoundEvent soundSad();
 
     protected abstract double getTameChance(ItemStack stack);
+
+    /** Cooldown da reprodução (em ticks) após gerar um bebê. */
+    protected abstract int breedCooldownTicks();
+
+    /** Condição extra pra habilitar o botão de reprodução (Jenny: sempre; Ellie: fraqueza/boost). */
+    protected boolean isBreedConditionMet() {
+        return true;
+    }
 
     protected boolean canCrouch() {
         return false;
@@ -145,6 +166,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.entityData.define(DATA_FOLLOWING, false);
         this.entityData.define(DATA_RUNNING, false);
         this.entityData.define(DATA_CROUCHING, false);
+        this.entityData.define(DATA_BREED_ENABLED, false);
+        this.entityData.define(DATA_BREED_COOLDOWN_SECS, 0);
     }
 
     /** Navegação que atravessa e abre portas, como aldeões. */
@@ -160,13 +183,14 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new OpenDoorGoal(this, true)); // abre e fecha portas
-        this.goalSelector.addGoal(2, new AwaitCommandGoal(this));
-        this.goalSelector.addGoal(3, new MeleeAttackGoal(this, 1.1D, true));
-        this.goalSelector.addGoal(4, new CompanionFollowOwnerGoal(this, 1.15D, 6.0F, 2.0F));
-        this.goalSelector.addGoal(5, new ReturnHomeGoal(this, 1.0D, 10.0D));
-        this.goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 1.0D));
-        this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 6.0F));
-        this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(2, new BreedWithVillagerGoal(this));
+        this.goalSelector.addGoal(3, new AwaitCommandGoal(this));
+        this.goalSelector.addGoal(4, new MeleeAttackGoal(this, 1.1D, true));
+        this.goalSelector.addGoal(5, new CompanionFollowOwnerGoal(this, 1.15D, 6.0F, 2.0F));
+        this.goalSelector.addGoal(6, new ReturnHomeGoal(this, 1.0D, 10.0D));
+        this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 1.0D));
+        this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 6.0F));
+        this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
 
         // Defesa própria: sempre (domesticada ou não).
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
@@ -241,7 +265,110 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             updateCalmDown();
             updateRegen();
             updateTeleportHome();
+            updateBreedState();
         }
+    }
+
+    // ---------------- Reprodução com aldeão ----------------
+    private void updateBreedState() {
+        boolean enabled = isBreedEnabledNow();
+        if (this.entityData.get(DATA_BREED_ENABLED) != enabled) {
+            this.entityData.set(DATA_BREED_ENABLED, enabled);
+        }
+        int secs = (int) Math.max(0, Math.ceil((this.breedCooldownUntil - this.level().getGameTime()) / 20.0D));
+        if (this.entityData.get(DATA_BREED_COOLDOWN_SECS) != secs) {
+            this.entityData.set(DATA_BREED_COOLDOWN_SECS, secs);
+        }
+    }
+
+    private boolean isBreedOnCooldown() {
+        return this.level().getGameTime() < this.breedCooldownUntil;
+    }
+
+    /** Pode reproduzir agora? (domesticada, sem cooldown, sem estar no processo, e condição atendida). */
+    public boolean isBreedEnabledNow() {
+        return this.isTame() && !this.breedActive && !isBreedOnCooldown() && isBreedConditionMet();
+    }
+
+    public boolean isBreedActive() {
+        return this.breedActive;
+    }
+
+    // Lidos pela tela (cliente), via dados sincronizados.
+    public boolean isBreedButtonEnabled() {
+        return this.entityData.get(DATA_BREED_ENABLED);
+    }
+
+    public int getBreedCooldownSecs() {
+        return this.entityData.get(DATA_BREED_COOLDOWN_SECS);
+    }
+
+    @Nullable
+    private net.minecraft.world.entity.npc.Villager getBreedVillager() {
+        if (this.breedVillagerId == null || !(this.level() instanceof ServerLevel sl)) {
+            return null;
+        }
+        return sl.getEntity(this.breedVillagerId) instanceof net.minecraft.world.entity.npc.Villager v ? v : null;
+    }
+
+    /** Chamado pelo botão do menu. Procura o aldeão mais próximo e inicia a aproximação. */
+    public void startBreeding(ServerPlayer player) {
+        if (!isBreedEnabledNow()) {
+            return;
+        }
+        net.minecraft.world.phys.AABB box = this.getBoundingBox().inflate(16.0D);
+        net.minecraft.world.entity.npc.Villager nearest = null;
+        double best = Double.MAX_VALUE;
+        for (net.minecraft.world.entity.npc.Villager v : this.level().getEntitiesOfClass(net.minecraft.world.entity.npc.Villager.class, box)) {
+            if (v.isBaby()) {
+                continue;
+            }
+            double d = this.distanceToSqr(v);
+            if (d < best) {
+                best = d;
+                nearest = v;
+            }
+        }
+        if (nearest == null) {
+            // Sem aldeões por perto: som triste + mensagem.
+            SoundEvent sad = soundSad();
+            if (sad != null) {
+                this.level().playSound(null, this.getX(), this.getY(), this.getZ(), sad, SoundSource.NEUTRAL, 1.0F, 1.0F);
+            }
+            player.sendSystemMessage(Component.translatable("chat.type.text", this.getDisplayName(),
+                    Component.translatable("message." + JennyEllieMod.MODID + "." + animBase() + ".novillager")));
+            return;
+        }
+        this.breedActive = true;
+        this.breedVillagerId = nearest.getUUID();
+        this.breedContactTicks = 0;
+    }
+
+    private void cancelBreed() {
+        this.breedActive = false;
+        this.breedVillagerId = null;
+        this.breedContactTicks = 0;
+    }
+
+    private void finishBreeding(net.minecraft.world.entity.npc.Villager villager) {
+        if (this.level() instanceof ServerLevel sl) {
+            net.minecraft.world.entity.npc.Villager baby =
+                    net.minecraft.world.entity.EntityType.VILLAGER.create(sl);
+            if (baby != null) {
+                baby.setBaby(true);
+                baby.moveTo(this.getX(), this.getY(), this.getZ(), this.getYRot(), 0.0F);
+                sl.addFreshEntity(baby);
+            }
+            sl.sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + 1.0D, this.getZ(),
+                    12, 0.4D, 0.6D, 0.4D, 0.1D);
+        }
+        SoundEvent s = soundTameSuccess();
+        if (s != null) {
+            this.level().playSound(null, this.getX(), this.getY(), this.getZ(), s, SoundSource.NEUTRAL, 1.0F, 1.0F);
+        }
+        this.breedCooldownUntil = this.level().getGameTime() + breedCooldownTicks();
+        this.breedBoostUntil = 0L; // desabilita o botão imediatamente (Ellie)
+        cancelBreed();
     }
 
     private void updateTeleportHome() {
@@ -394,18 +521,17 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
 
     public void onCommandFeedback(ServerPlayer player, CompanionActionPacket.Action action) {
         String key = switch (action) {
-            case FOLLOW -> "follow";
+            case FOLLOW, TOGGLE_FOLLOW, BREED -> "follow";
             case STOP -> "stop";
             case SET_HOME -> "sethome";
             case GO_HOME -> "gohome";
-            case TOGGLE_FOLLOW -> "follow";
         };
         Component msg = Component.translatable(
                 "message." + JennyEllieMod.MODID + "." + animBase() + "." + key, player.getDisplayName());
         player.sendSystemMessage(Component.translatable("chat.type.text", this.getDisplayName(), msg));
 
         SoundEvent sound = switch (action) {
-            case FOLLOW, TOGGLE_FOLLOW -> soundFollow();
+            case FOLLOW, TOGGLE_FOLLOW, BREED -> soundFollow();
             case STOP -> soundStop();
             case SET_HOME -> soundSetHome();
             case GO_HOME -> soundGoHome();
@@ -509,6 +635,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             tag.putInt("HomeY", this.homePos.getY());
             tag.putInt("HomeZ", this.homePos.getZ());
         }
+        tag.putLong("BreedCooldownUntil", this.breedCooldownUntil);
+        tag.putLong("BreedBoostUntil", this.breedBoostUntil);
     }
 
     @Override
@@ -518,6 +646,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         if (tag.contains("HomeX")) {
             this.homePos = new BlockPos(tag.getInt("HomeX"), tag.getInt("HomeY"), tag.getInt("HomeZ"));
         }
+        this.breedCooldownUntil = tag.getLong("BreedCooldownUntil");
+        this.breedBoostUntil = tag.getLong("BreedBoostUntil");
         super.setCustomName(getFixedName());
         this.setCustomNameVisible(true);
     }
@@ -698,6 +828,52 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         @Override
         public boolean canUse() {
             return this.companion.isFollowing() && super.canUse();
+        }
+    }
+
+    /** Aproxima a companheira e o aldeão, com corações, até gerar um bebê aldeão. */
+    static class BreedWithVillagerGoal extends Goal {
+        private final CompanionEntity companion;
+
+        BreedWithVillagerGoal(CompanionEntity companion) {
+            this.companion = companion;
+            this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
+        }
+
+        @Override
+        public boolean canUse() {
+            return this.companion.isBreedActive() && this.companion.getBreedVillager() != null;
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            return canUse();
+        }
+
+        @Override
+        public void tick() {
+            net.minecraft.world.entity.npc.Villager v = this.companion.getBreedVillager();
+            if (v == null || !v.isAlive()) {
+                this.companion.cancelBreed();
+                return;
+            }
+            this.companion.getLookControl().setLookAt(v, 30.0F, 30.0F);
+            if (this.companion.tickCount % 10 == 0 && this.companion.level() instanceof ServerLevel sl) {
+                sl.sendParticles(ParticleTypes.HEART, this.companion.getX(), this.companion.getY() + 1.2D, this.companion.getZ(), 3, 0.3D, 0.3D, 0.3D, 0.02D);
+                sl.sendParticles(ParticleTypes.HEART, v.getX(), v.getY() + 1.2D, v.getZ(), 3, 0.3D, 0.3D, 0.3D, 0.02D);
+            }
+
+            if (this.companion.distanceToSqr(v) > 2.5D * 2.5D) {
+                this.companion.getNavigation().moveTo(v, 1.0D);
+                v.getNavigation().moveTo(this.companion, 0.5D);
+                this.companion.breedContactTicks = 0;
+            } else {
+                this.companion.getNavigation().stop();
+                this.companion.breedContactTicks++;
+                if (this.companion.breedContactTicks >= 60) { // ~3s em contato
+                    this.companion.finishBreeding(v);
+                }
+            }
         }
     }
 }

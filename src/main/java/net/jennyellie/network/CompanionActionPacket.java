@@ -10,7 +10,7 @@ import net.minecraftforge.network.NetworkEvent;
 /** Pacote cliente -> servidor com a ação escolhida no menu de opções. */
 public class CompanionActionPacket {
 
-    public enum Action { FOLLOW, STOP, SET_HOME, GO_HOME, TOGGLE_FOLLOW }
+    public enum Action { FOLLOW, STOP, SET_HOME, GO_HOME, TOGGLE_FOLLOW, BREED }
 
     private final int entityId;
     private final Action action;
@@ -69,6 +69,7 @@ public class CompanionActionPacket {
                     companion.commandGoHome();
                     companion.onCommandFeedback(player, Action.GO_HOME);
                 }
+                case BREED -> companion.startBreeding(player);
             }
         });
         ctx.get().setPacketHandled(true);

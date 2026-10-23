@@ -9,6 +9,10 @@
     "action.names.stopfollowme": "Stop following me",
     "action.names.setnewhome": "Set new home",
     "action.names.gohome": "Go home",
+    "action.names.villager": "Villager",
+    "gui.jennyellie.cooldown": "%ss",
+    "message.jennyellie.jenny.novillager": "There are no villagers nearby...",
+    "message.jennyellie.ellie.novillager": "There are no villagers nearby...",
 
     "message.jennyellie.jenny.follow": "Okay! I am right behind you %s~",
     "message.jennyellie.jenny.stop": "Oh.. well.. cya~",

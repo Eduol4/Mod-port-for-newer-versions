@@ -133,4 +133,14 @@ public class JennyEntity extends CompanionEntity {
     protected SoundEvent soundTameSuccess() {
         return ModSounds.JENNY_HAPPYOH.get();
     }
+
+    @Override
+    protected SoundEvent soundSad() {
+        return ModSounds.JENNY_SADOH.get();
+    }
+
+    @Override
+    protected int breedCooldownTicks() {
+        return 1200; // 1 min
+    }
 }
