@@ -23,6 +23,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.SpawnGroupData;
@@ -79,6 +80,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> DATA_BREED_COOLDOWN_SECS =
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> DATA_HAS_HOME =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
 
     @Nullable
     private BlockPos homePos;
@@ -99,6 +102,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     @Nullable
     private UUID breedVillagerId;
     private int breedContactTicks;
+    private boolean wasBreedReady;
 
     // ~4,58s de animação (throwpearl), sem atraso extra.
     private static final int TELEPORT_HOME_DELAY = 92;
@@ -171,6 +175,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.entityData.define(DATA_CROUCHING, false);
         this.entityData.define(DATA_BREED_ENABLED, false);
         this.entityData.define(DATA_BREED_COOLDOWN_SECS, 0);
+        this.entityData.define(DATA_HAS_HOME, false);
     }
 
     /** Navegação que atravessa e abre portas, como aldeões. */
@@ -269,7 +274,17 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             updateRegen();
             updateTeleportHome();
             updateBreedState();
+
+            boolean home = hasHome();
+            if (this.entityData.get(DATA_HAS_HOME) != home) {
+                this.entityData.set(DATA_HAS_HOME, home);
+            }
         }
+    }
+
+    /** Lido pela tela (cliente): existe uma casa definida? */
+    public boolean isHomeSet() {
+        return this.entityData.get(DATA_HAS_HOME);
     }
 
     // ---------------- Reprodução com aldeão ----------------
@@ -291,6 +306,17 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
                 sl.sendParticles(ParticleTypes.HEART, v.getX(), v.getY() + 1.2D, v.getZ(), 1, 0.3D, 0.3D, 0.3D, 0.0D);
             }
         }
+
+        // Transição para "pronta para reproduzir" (dispara a mensagem da Ellie).
+        boolean ready = this.isTame() && isBreedConditionMet();
+        if (ready && !this.wasBreedReady) {
+            onBecameBreedReady();
+        }
+        this.wasBreedReady = ready;
+    }
+
+    /** Chamado quando a companheira passa a estar pronta pra reprodução. Base: nada. */
+    protected void onBecameBreedReady() {
     }
 
     private boolean isBreedOnCooldown() {
@@ -360,6 +386,10 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     }
 
     private void cancelBreed() {
+        net.minecraft.world.entity.npc.Villager v = getBreedVillager();
+        if (v != null) {
+            v.getBrain().eraseMemory(MemoryModuleType.WALK_TARGET); // aldeão volta ao normal
+        }
         this.breedActive = false;
         this.breedVillagerId = null;
         this.breedContactTicks = 0;
@@ -376,7 +406,11 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             }
             sl.sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + 1.0D, this.getZ(),
                     12, 0.4D, 0.6D, 0.4D, 0.1D);
+            // XP como na reprodução de animais.
+            ExperienceOrb.award(sl, this.position(), 1 + this.random.nextInt(7));
         }
+        // Aldeão volta imediatamente ao que estava fazendo.
+        villager.getBrain().eraseMemory(MemoryModuleType.WALK_TARGET);
         SoundEvent s = soundTameSuccess();
         if (s != null) {
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(), s, SoundSource.NEUTRAL, 1.0F, 1.0F);

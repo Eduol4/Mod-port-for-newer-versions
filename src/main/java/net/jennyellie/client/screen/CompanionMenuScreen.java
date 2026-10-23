@@ -36,8 +36,10 @@ public class CompanionMenuScreen extends Screen {
                 b -> send(CompanionActionPacket.Action.TOGGLE_FOLLOW)).bounds(x, y, w, h).build());
         addRenderableWidget(Button.builder(Component.translatable("action.names.setnewhome"),
                 b -> send(CompanionActionPacket.Action.SET_HOME)).bounds(x, y + (h + gap), w, h).build());
-        addRenderableWidget(Button.builder(Component.translatable("action.names.gohome"),
-                b -> send(CompanionActionPacket.Action.GO_HOME)).bounds(x, y + 2 * (h + gap), w, h).build());
+        Button goHome = Button.builder(Component.translatable("action.names.gohome"),
+                b -> send(CompanionActionPacket.Action.GO_HOME)).bounds(x, y + 2 * (h + gap), w, h).build();
+        goHome.active = this.entity.isHomeSet(); // desabilitado até definir uma casa
+        addRenderableWidget(goHome);
 
         // Botão de reprodução, isolado à direita.
         this.breedBtnX = this.width - 12 - w;

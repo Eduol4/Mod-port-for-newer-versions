@@ -12,6 +12,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -159,5 +160,15 @@ public class EllieEntity extends CompanionEntity {
     protected boolean isBreedConditionMet() {
         return this.hasEffect(MobEffects.WEAKNESS)
                 || this.level().getGameTime() < this.breedBoostUntil;
+    }
+
+    /** Ao ficar pronta (fraqueza/maçã/cenoura dourada), avisa no chat. */
+    @Override
+    protected void onBecameBreedReady() {
+        Player p = this.level().getNearestPlayer(this, 16.0D);
+        if (p != null) {
+            p.sendSystemMessage(Component.translatable("chat.type.text", this.getDisplayName(),
+                    Component.translatable("message." + net.jennyellie.JennyEllieMod.MODID + ".ellie.ready")));
+        }
     }
 }

@@ -13,6 +13,7 @@
     "gui.jennyellie.cooldown": "%ss",
     "message.jennyellie.jenny.novillager": "There are no villagers nearby...",
     "message.jennyellie.ellie.novillager": "There are no villagers nearby...",
+    "message.jennyellie.ellie.ready": "I'm ready for the villagers~",
 
     "message.jennyellie.jenny.follow": "Okay! I am right behind you %s~",
     "message.jennyellie.jenny.stop": "Oh.. well.. cya~",
