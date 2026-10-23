@@ -61,9 +61,9 @@ public class EllieEntity extends CompanionEntity {
             this.level().broadcastEntityEvent(this, (byte) 7); // corações
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
                     ModSounds.ELLIE_GIGGLE.get(), SoundSource.NEUTRAL, 1.0F, 1.0F);
-            // Buff temporário (reinicia a cada balde): Força I + Regeneração I por 30s.
-            this.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 600, 0));
-            this.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 600, 0));
+            // Buff temporário (reinicia a cada balde): Força I + Regeneração I por 1 min.
+            this.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 1200, 0));
+            this.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 1200, 0));
         }
         return InteractionResult.sidedSuccess(this.level().isClientSide);
     }
