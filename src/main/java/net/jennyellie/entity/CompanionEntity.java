@@ -48,11 +48,16 @@ import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.memory.WalkTarget;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.ai.util.DefaultRandomPos;
+import net.minecraft.world.entity.ai.util.LandRandomPos;
+import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import org.jetbrains.annotations.Nullable;
@@ -84,6 +89,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_THROWING =
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_BREEDING =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
 
     @Nullable
     private BlockPos homePos;
@@ -96,6 +103,10 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     private int regenTimer;
     private int teleportHomeTick; // > 0 = teletransporte pra casa agendado
     private boolean goingHome;    // só true quando "go home" foi comandado explicitamente
+    @Nullable
+    private BlockPos roamAnchor;         // domesticada: centro de perambulação (parar de seguir / em casa)
+    @Nullable
+    private BlockPos lastVillagerAnchor; // não domesticada: último aldeão conhecido (fica pela vila)
     private boolean appliedConfig = false;
 
     // Reprodução com aldeão
@@ -180,6 +191,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.entityData.define(DATA_BREED_COOLDOWN_SECS, 0);
         this.entityData.define(DATA_HAS_HOME, false);
         this.entityData.define(DATA_THROWING, false);
+        this.entityData.define(DATA_BREEDING, false);
     }
 
     /** Navegação que atravessa e abre portas, como aldeões. */
@@ -200,7 +212,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.goalSelector.addGoal(4, new AwaitCommandGoal(this));
         this.goalSelector.addGoal(5, new CompanionFollowOwnerGoal(this, 1.15D, 6.0F, 2.0F));
         this.goalSelector.addGoal(6, new ReturnHomeGoal(this, 1.0D, 10.0D));
-        this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 1.0D));
+        this.goalSelector.addGoal(7, new AnchoredStrollGoal(this, 1.0D));
         this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 6.0F));
         this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
 
@@ -287,10 +299,17 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             if (this.entityData.get(DATA_THROWING) != throwing) {
                 this.entityData.set(DATA_THROWING, throwing);
             }
+            if (this.entityData.get(DATA_BREEDING) != this.breedActive) {
+                this.entityData.set(DATA_BREEDING, this.breedActive);
+            }
             // Deixa de "ir pra casa" ao seguir, sem casa, ou ao chegar.
-            if (this.goingHome && (this.isFollowing() || !hasHome()
-                    || this.blockPosition().distSqr(this.getHomePos()) <= 16.0D)) {
-                this.goingHome = false;
+            if (this.goingHome) {
+                if (this.isFollowing() || !hasHome()) {
+                    this.goingHome = false;
+                } else if (this.blockPosition().distSqr(this.getHomePos()) <= 16.0D) {
+                    this.goingHome = false;
+                    this.roamAnchor = this.homePos; // chegou: perambula só ao redor de casa
+                }
             }
         }
     }
@@ -303,6 +322,11 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     /** Estado sincronizado: está na sequência de teleporte (animação da pearl). */
     public boolean isThrowing() {
         return this.entityData.get(DATA_THROWING);
+    }
+
+    /** Estado sincronizado (cliente): está reproduzindo com um aldeão — usado para o leve "agachar". */
+    public boolean isBreedingPose() {
+        return this.entityData.get(DATA_BREEDING);
     }
 
     public boolean isGoingHome() {
@@ -473,6 +497,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         BlockPos h = this.homePos;
         this.teleportHomeTick = 0;
         this.goingHome = false; // chegou: encerra o estado "indo pra casa"
+        this.roamAnchor = h;    // perambula só ao redor de casa
         if (h == null) {
             return;
         }
@@ -570,6 +595,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.setFollowing(true);
         this.setOrderedToSit(false);
         this.goingHome = false;
+        this.roamAnchor = null; // seguindo: sem âncora de perambulação
         clearAwait();
     }
 
@@ -577,6 +603,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.setFollowing(false);
         this.setTarget(null); // deixa de defender o dono ao parar de seguir
         this.goingHome = false; // estado "normal" — NÃO volta pra casa sozinha
+        this.roamAnchor = this.blockPosition(); // perambula só ao redor daqui
         clearAwait();
     }
 
@@ -590,8 +617,48 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         if (this.homePos == null) {
             this.homePos = this.blockPosition();
         }
-        this.goingHome = true; // só aqui ela realmente volta pra casa
+        this.goingHome = true;  // só aqui ela realmente volta pra casa
+        this.roamAnchor = null; // só vira âncora ao CHEGAR em casa (ver tick/teleporte)
         clearAwait();
+    }
+
+    /** Centro de perambulação atual, ou null para perambular livremente. */
+    @Nullable
+    BlockPos getRoamAnchor() {
+        if (!this.isTame()) {
+            // Não domesticada: procura ficar perto de aldeões (fica pela vila).
+            Villager v = nearestVillager(24.0D);
+            if (v != null) {
+                this.lastVillagerAnchor = v.blockPosition();
+            }
+            return this.lastVillagerAnchor;
+        }
+        // Domesticada: só perambula ancorada quando NÃO está seguindo.
+        return this.isFollowing() ? null : this.roamAnchor;
+    }
+
+    /** Raio de perambulação ao redor da âncora, ao quadrado. */
+    double getRoamRadiusSqr() {
+        double r = this.isTame() ? 6.0D : 11.0D;
+        return r * r;
+    }
+
+    @Nullable
+    private Villager nearestVillager(double radius) {
+        AABB box = this.getBoundingBox().inflate(radius);
+        Villager best = null;
+        double bestSqr = Double.MAX_VALUE;
+        for (Villager v : this.level().getEntitiesOfClass(Villager.class, box)) {
+            if (!v.isAlive()) {
+                continue;
+            }
+            double d = this.distanceToSqr(v);
+            if (d < bestSqr) {
+                bestSqr = d;
+                best = v;
+            }
+        }
+        return best;
     }
 
     public void onCommandFeedback(ServerPlayer player, CompanionActionPacket.Action action) {
@@ -710,6 +777,11 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             tag.putInt("HomeY", this.homePos.getY());
             tag.putInt("HomeZ", this.homePos.getZ());
         }
+        if (this.roamAnchor != null) {
+            tag.putInt("RoamX", this.roamAnchor.getX());
+            tag.putInt("RoamY", this.roamAnchor.getY());
+            tag.putInt("RoamZ", this.roamAnchor.getZ());
+        }
         tag.putLong("BreedCooldownUntil", this.breedCooldownUntil);
         tag.putLong("BreedBoostUntil", this.breedBoostUntil);
     }
@@ -720,6 +792,9 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.setFollowing(tag.getBoolean("Following"));
         if (tag.contains("HomeX")) {
             this.homePos = new BlockPos(tag.getInt("HomeX"), tag.getInt("HomeY"), tag.getInt("HomeZ"));
+        }
+        if (tag.contains("RoamX")) {
+            this.roamAnchor = new BlockPos(tag.getInt("RoamX"), tag.getInt("RoamY"), tag.getInt("RoamZ"));
         }
         this.breedCooldownUntil = tag.getLong("BreedCooldownUntil");
         this.breedBoostUntil = tag.getLong("BreedBoostUntil");
@@ -877,6 +952,60 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         @Override
         public void stop() {
             this.companion.getNavigation().stop();
+        }
+    }
+
+    /**
+     * Perambulação limitada a uma "âncora":
+     * - não domesticada: tenta ficar perto de aldeões (fica pela vila);
+     * - domesticada parada ("stop following") ou em casa ("go home"): fica só alguns blocos ao redor.
+     * Sem âncora, perambula livremente (comportamento padrão).
+     */
+    static class AnchoredStrollGoal extends WaterAvoidingRandomStrollGoal {
+        private final CompanionEntity companion;
+
+        AnchoredStrollGoal(CompanionEntity companion, double speed) {
+            super(companion, speed);
+            this.companion = companion;
+        }
+
+        private boolean busy() {
+            return this.companion.isFollowing() || this.companion.isAwaiting()
+                    || this.companion.isTeleportingHome() || this.companion.isGoingHome()
+                    || this.companion.isBreedActive() || this.companion.getTarget() != null;
+        }
+
+        @Override
+        public boolean canUse() {
+            return !busy() && super.canUse();
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            return !busy() && super.canContinueToUse();
+        }
+
+        @Override
+        @Nullable
+        protected Vec3 getPosition() {
+            BlockPos anchor = this.companion.getRoamAnchor();
+            if (anchor == null) {
+                return super.getPosition(); // perambulação livre
+            }
+            Vec3 center = Vec3.atBottomCenterOf(anchor);
+            double radiusSqr = this.companion.getRoamRadiusSqr();
+            // Longe da âncora: volta na direção dela.
+            if (this.companion.position().distanceToSqr(center) > radiusSqr) {
+                Vec3 back = DefaultRandomPos.getPosTowards(this.mob, 10, 7, center, (double) (Math.PI / 2));
+                return back != null ? back : center;
+            }
+            // Perto: escolhe um ponto aleatório, mas rejeita se sair do raio.
+            Vec3 p = LandRandomPos.getPos(this.mob, 7, 4);
+            if (p != null && center.distanceToSqr(p) <= radiusSqr) {
+                return p;
+            }
+            Vec3 towards = DefaultRandomPos.getPosTowards(this.mob, 7, 7, center, (double) (Math.PI / 2));
+            return towards != null ? towards : p;
         }
     }
 
