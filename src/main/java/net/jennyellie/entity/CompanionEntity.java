@@ -82,6 +82,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> DATA_HAS_HOME =
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_THROWING =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
 
     @Nullable
     private BlockPos homePos;
@@ -93,6 +95,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     private int calmUntilTick;   // até quando (não domesticada) continua revidando
     private int regenTimer;
     private int teleportHomeTick; // > 0 = teletransporte pra casa agendado
+    private boolean goingHome;    // só true quando "go home" foi comandado explicitamente
     private boolean appliedConfig = false;
 
     // Reprodução com aldeão
@@ -176,6 +179,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.entityData.define(DATA_BREED_ENABLED, false);
         this.entityData.define(DATA_BREED_COOLDOWN_SECS, 0);
         this.entityData.define(DATA_HAS_HOME, false);
+        this.entityData.define(DATA_THROWING, false);
     }
 
     /** Navegação que atravessa e abre portas, como aldeões. */
@@ -279,12 +283,30 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             if (this.entityData.get(DATA_HAS_HOME) != home) {
                 this.entityData.set(DATA_HAS_HOME, home);
             }
+            boolean throwing = this.teleportHomeTick != 0;
+            if (this.entityData.get(DATA_THROWING) != throwing) {
+                this.entityData.set(DATA_THROWING, throwing);
+            }
+            // Deixa de "ir pra casa" ao seguir, sem casa, ou ao chegar.
+            if (this.goingHome && (this.isFollowing() || !hasHome()
+                    || this.blockPosition().distSqr(this.getHomePos()) <= 16.0D)) {
+                this.goingHome = false;
+            }
         }
     }
 
     /** Lido pela tela (cliente): existe uma casa definida? */
     public boolean isHomeSet() {
         return this.entityData.get(DATA_HAS_HOME);
+    }
+
+    /** Estado sincronizado: está na sequência de teleporte (animação da pearl). */
+    public boolean isThrowing() {
+        return this.entityData.get(DATA_THROWING);
+    }
+
+    public boolean isGoingHome() {
+        return this.goingHome;
     }
 
     // ---------------- Reprodução com aldeão ----------------
@@ -379,6 +401,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         }
         // Reprodução vira prioridade máxima: deixa de seguir e de "aguardar comando".
         this.setFollowing(false);
+        this.goingHome = false; // após reproduzir NÃO volta pra casa sozinha
         clearAwait();
         this.breedActive = true;
         this.breedVillagerId = nearest.getUUID();
@@ -442,7 +465,6 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         if (this.teleportHomeTick != 0) {
             return;
         }
-        this.triggerAnim("action", "throwpearl");
         this.teleportHomeTick = this.tickCount + TELEPORT_HOME_DELAY;
         this.getNavigation().stop();
     }
@@ -450,6 +472,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     private void performTeleportHome() {
         BlockPos h = this.homePos;
         this.teleportHomeTick = 0;
+        this.goingHome = false; // chegou: encerra o estado "indo pra casa"
         if (h == null) {
             return;
         }
@@ -546,12 +569,14 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.setOwnerUUID(player.getUUID());
         this.setFollowing(true);
         this.setOrderedToSit(false);
+        this.goingHome = false;
         clearAwait();
     }
 
     public void commandStopFollow() {
         this.setFollowing(false);
         this.setTarget(null); // deixa de defender o dono ao parar de seguir
+        this.goingHome = false; // estado "normal" — NÃO volta pra casa sozinha
         clearAwait();
     }
 
@@ -565,6 +590,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         if (this.homePos == null) {
             this.homePos = this.blockPosition();
         }
+        this.goingHome = true; // só aqui ela realmente volta pra casa
         clearAwait();
     }
 
@@ -721,14 +747,17 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
                 .triggerableAnim("attack0", RawAnimation.begin().thenPlay(b + "attack0"))
                 .triggerableAnim("attack1", RawAnimation.begin().thenPlay(b + "attack1"))
                 .triggerableAnim("attack2", RawAnimation.begin().thenPlay(b + "attack2")));
-        controllers.add(new AnimationController<>(this, "action", 0, state -> PlayState.STOP)
-                .triggerableAnim("throwpearl", RawAnimation.begin().thenPlay(b + "throwpearl")));
     }
 
     private PlayState mainPredicate(AnimationState<CompanionEntity> state) {
         String b = "animation." + animBase() + ".";
         boolean moving = state.isMoving();
 
+        // Teleporte pra casa: animação dirigida por estado (para sozinha ao terminar).
+        if (isThrowing()) {
+            state.setAnimation(RawAnimation.begin().thenLoop(b + "throwpearl"));
+            return PlayState.CONTINUE;
+        }
         if (isCrouchingAnim()) {
             state.setAnimation(RawAnimation.begin().thenLoop(b + (moving ? "crouchwalk" : "crouchidle")));
             return PlayState.CONTINUE;
@@ -813,7 +842,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
 
         @Override
         public boolean canUse() {
-            if (this.companion.isFollowing() || !this.companion.hasHome()
+            if (!this.companion.isGoingHome() || this.companion.isFollowing() || !this.companion.hasHome()
                     || this.companion.isAwaiting() || this.companion.isTeleportingHome()) {
                 return false;
             }
@@ -822,7 +851,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
 
         @Override
         public boolean canContinueToUse() {
-            return !this.companion.isFollowing()
+            return this.companion.isGoingHome()
+                    && !this.companion.isFollowing()
                     && !this.companion.isAwaiting()
                     && !this.companion.isTeleportingHome()
                     && this.companion.hasHome()
