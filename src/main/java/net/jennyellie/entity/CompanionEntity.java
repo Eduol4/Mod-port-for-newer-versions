@@ -24,6 +24,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobSpawnType;
@@ -53,7 +54,14 @@ import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.entity.ai.util.LandRandomPos;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ArmorMaterials;
+import net.minecraft.world.item.DiggerItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.TieredItem;
+import net.minecraft.world.item.Tiers;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.BedBlock;
@@ -64,6 +72,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -137,6 +146,11 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         super(type, level);
         super.setCustomName(getFixedName());
         this.setCustomNameVisible(true);
+        this.setCanPickUpLoot(false); // equipamento é só via menu, não apanha do chão
+        // Garante que todo o equipamento equipado caia (intacto) ao morrer.
+        for (EquipmentSlot slot : EquipmentSlot.values()) {
+            this.setDropChance(slot, 2.0F);
+        }
     }
 
     protected abstract String animBase();
@@ -753,11 +767,15 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     }
 
     public void onCommandFeedback(ServerPlayer player, CompanionActionPacket.Action action) {
+        if (action == CompanionActionPacket.Action.OPEN_EQUIPMENT) {
+            return; // abrir o inventário não tem fala/som
+        }
         String key = switch (action) {
             case FOLLOW, TOGGLE_FOLLOW, BREED -> "follow";
             case STOP -> "stop";
             case SET_HOME -> "sethome";
             case GO_HOME -> "gohome";
+            case OPEN_EQUIPMENT -> "follow";
         };
         Component msg = Component.translatable(
                 "message." + JennyEllieMod.MODID + "." + animBase() + "." + key, player.getDisplayName());
@@ -768,6 +786,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             case STOP -> soundStop();
             case SET_HOME -> soundSetHome();
             case GO_HOME -> soundGoHome();
+            case OPEN_EQUIPMENT -> null;
         };
         if (sound != null) {
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
@@ -863,8 +882,46 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         boolean result = super.doHurtTarget(target);
         if (result && !this.level().isClientSide) {
             this.triggerAnim("attack", "attack" + this.random.nextInt(3));
+            // Durabilidade da arma na mão, como um jogador ao atacar.
+            ItemStack weapon = this.getMainHandItem();
+            if (!weapon.isEmpty() && weapon.isDamageableItem()) {
+                weapon.hurtAndBreak(1, this, e -> e.broadcastBreakEvent(EquipmentSlot.MAINHAND));
+            }
         }
         return result;
+    }
+
+    // ---------------- Equipamento (validação) ----------------
+
+    private static boolean isVanilla(Item item) {
+        var key = ForgeRegistries.ITEMS.getKey(item);
+        return key != null && key.getNamespace().equals("minecraft");
+    }
+
+    /** Armaduras vanilla com textura disponível (couro, malha, ferro, ouro, diamante), no slot certo. */
+    public static boolean isAllowedArmor(ItemStack stack, EquipmentSlot target) {
+        if (!(stack.getItem() instanceof ArmorItem armor) || !isVanilla(armor)) {
+            return false;
+        }
+        if (armor.getEquipmentSlot() != target) {
+            return false;
+        }
+        var mat = armor.getMaterial();
+        return mat == ArmorMaterials.LEATHER || mat == ArmorMaterials.CHAIN
+                || mat == ArmorMaterials.IRON || mat == ArmorMaterials.GOLD
+                || mat == ArmorMaterials.DIAMOND;
+    }
+
+    /** Armas/ferramentas vanilla (espada, picareta, machado, pá, enxada), menos netherite. */
+    public static boolean isAllowedWeapon(ItemStack stack) {
+        Item item = stack.getItem();
+        if (!(item instanceof TieredItem tiered) || !isVanilla(item)) {
+            return false;
+        }
+        if (tiered.getTier() == Tiers.NETHERITE) {
+            return false;
+        }
+        return item instanceof SwordItem || item instanceof DiggerItem;
     }
 
     @Override

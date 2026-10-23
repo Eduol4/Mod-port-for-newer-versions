@@ -5,6 +5,7 @@ import net.jennyellie.network.ModNetwork;
 import net.jennyellie.registry.ModCreativeTabs;
 import net.jennyellie.registry.ModEntities;
 import net.jennyellie.registry.ModItems;
+import net.jennyellie.registry.ModMenus;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
@@ -25,6 +26,7 @@ public class JennyEllieMod {
         ModItems.ITEMS.register(modBus);
         ModCreativeTabs.TABS.register(modBus);
         net.jennyellie.registry.ModSounds.SOUNDS.register(modBus);
+        ModMenus.MENUS.register(modBus);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 

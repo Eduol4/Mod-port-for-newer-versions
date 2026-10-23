@@ -2,15 +2,18 @@ package net.jennyellie.network;
 
 import java.util.function.Supplier;
 import net.jennyellie.entity.CompanionEntity;
+import net.jennyellie.menu.CompanionEquipmentMenu;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.network.NetworkHooks;
 
 /** Pacote cliente -> servidor com a ação escolhida no menu de opções. */
 public class CompanionActionPacket {
 
-    public enum Action { FOLLOW, STOP, SET_HOME, GO_HOME, TOGGLE_FOLLOW, BREED }
+    public enum Action { FOLLOW, STOP, SET_HOME, GO_HOME, TOGGLE_FOLLOW, BREED, OPEN_EQUIPMENT }
 
     private final int entityId;
     private final Action action;
@@ -70,6 +73,11 @@ public class CompanionActionPacket {
                     companion.onCommandFeedback(player, Action.GO_HOME);
                 }
                 case BREED -> companion.startBreeding(player);
+                case OPEN_EQUIPMENT -> NetworkHooks.openScreen(player,
+                        new SimpleMenuProvider(
+                                (windowId, inv, p) -> new CompanionEquipmentMenu(windowId, inv, companion),
+                                companion.getDisplayName()),
+                        b -> b.writeVarInt(companion.getId()));
             }
         });
         ctx.get().setPacketHandled(true);

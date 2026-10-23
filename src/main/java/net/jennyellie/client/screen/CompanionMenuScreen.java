@@ -27,7 +27,7 @@ public class CompanionMenuScreen extends Screen {
     protected void init() {
         int x = 12;
         int w = 120, h = 20, gap = 4;
-        int y = this.height / 2 - (2 * h + gap);
+        int y = this.height / 2 - (4 * h + 3 * gap) / 2;
 
         Component followLabel = this.entity.isFollowing()
                 ? Component.translatable("action.names.stopfollowme")
@@ -40,6 +40,8 @@ public class CompanionMenuScreen extends Screen {
                 b -> send(CompanionActionPacket.Action.GO_HOME)).bounds(x, y + 2 * (h + gap), w, h).build();
         goHome.active = this.entity.isHomeSet(); // desabilitado até definir uma casa
         addRenderableWidget(goHome);
+        addRenderableWidget(Button.builder(Component.translatable("action.names.equipment"),
+                b -> send(CompanionActionPacket.Action.OPEN_EQUIPMENT)).bounds(x, y + 3 * (h + gap), w, h).build());
 
         // Botão de reprodução, isolado à direita.
         this.breedBtnX = this.width - 12 - w;
