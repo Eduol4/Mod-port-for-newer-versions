@@ -5,6 +5,7 @@ import java.util.UUID;
 import net.jennyellie.JennyEllieMod;
 import net.jennyellie.network.CompanionActionPacket;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -55,6 +56,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -89,6 +93,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_THROWING =
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_SITTING =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
 
     @Nullable
     private BlockPos homePos;
@@ -105,6 +111,9 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     private BlockPos roamAnchor;         // domesticada: centro de perambulação (parar de seguir / em casa)
     @Nullable
     private BlockPos lastVillagerAnchor; // não domesticada: último aldeão conhecido (fica pela vila)
+    @Nullable
+    private BlockPos bedPos;             // cama onde está sentada (cabeceira), ou null
+    private int bedStandCheckTick;       // próxima verificação da chance de levantar
     private boolean appliedConfig = false;
 
     // Reprodução com aldeão
@@ -189,6 +198,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.entityData.define(DATA_BREED_COOLDOWN_SECS, 0);
         this.entityData.define(DATA_HAS_HOME, false);
         this.entityData.define(DATA_THROWING, false);
+        this.entityData.define(DATA_SITTING, false);
     }
 
     /** Navegação que atravessa e abre portas, como aldeões. */
@@ -209,7 +219,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.goalSelector.addGoal(4, new AwaitCommandGoal(this));
         this.goalSelector.addGoal(5, new CompanionFollowOwnerGoal(this, 1.15D, 6.0F, 2.0F));
         this.goalSelector.addGoal(6, new ReturnHomeGoal(this, 1.0D, 10.0D));
-        this.goalSelector.addGoal(7, new AnchoredStrollGoal(this, 1.0D));
+        this.goalSelector.addGoal(7, new SitOnBedGoal(this, 1.0D));
+        this.goalSelector.addGoal(8, new AnchoredStrollGoal(this, 1.0D));
         this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 6.0F));
         this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
 
@@ -287,6 +298,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             updateRegen();
             updateTeleportHome();
             updateBreedState();
+            updateBedSit();
 
             boolean home = hasHome();
             if (this.entityData.get(DATA_HAS_HOME) != home) {
@@ -316,6 +328,93 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     /** Estado sincronizado: está na sequência de teleporte (animação da pearl). */
     public boolean isThrowing() {
         return this.entityData.get(DATA_THROWING);
+    }
+
+    // ---------------- Sentar (cama / barco) ----------------
+
+    /** Estado sincronizado: sentada numa cama. */
+    public boolean isSittingOnBed() {
+        return this.entityData.get(DATA_SITTING);
+    }
+
+    /** Animação de sentar ativa quando está numa cama OU embarcada (ex.: barco). */
+    public boolean isSittingPose() {
+        return this.isSittingOnBed() || this.isPassenger();
+    }
+
+    @Nullable
+    public BlockPos getBedPos() {
+        return this.bedPos;
+    }
+
+    /** Pode sentar agora? (não seguindo se domesticada, sem reprodução/alvo/estados transitórios). */
+    boolean canSitOnBedNow() {
+        if (this.bedPos != null || this.isPassenger()) {
+            return false;
+        }
+        if (this.isTame() && this.isFollowing()) {
+            return false;
+        }
+        return !this.isBreedActive() && this.getTarget() == null && !this.isAwaiting()
+                && !this.isGoingHome() && !this.isTeleportingHome();
+    }
+
+    /** Senta na cabeceira informada: marca a cama como ocupada, posiciona e vira pra cama. */
+    void sitOnBed(BlockPos headPos) {
+        BlockState hs = this.level().getBlockState(headPos);
+        if (!(hs.getBlock() instanceof BedBlock)) {
+            return;
+        }
+        this.bedPos = headPos.immutable();
+        setBedOccupied(headPos, true);
+        this.entityData.set(DATA_SITTING, true);
+        this.getNavigation().stop();
+        Direction facing = hs.getValue(BedBlock.FACING);
+        this.moveTo(headPos.getX() + 0.5D, headPos.getY() + 0.5625D, headPos.getZ() + 0.5D,
+                facing.toYRot(), 0.0F);
+        this.setYBodyRot(facing.toYRot());
+        this.setYHeadRot(facing.toYRot());
+        this.setDeltaMovement(0.0D, 0.0D, 0.0D);
+        this.bedStandCheckTick = this.tickCount + 200; // primeira checagem de levantar em 10s
+    }
+
+    /** Levanta da cama (libera-a) e volta a perambular. */
+    public void standUpFromBed() {
+        if (this.bedPos != null) {
+            setBedOccupied(this.bedPos, false);
+            this.bedPos = null;
+        }
+        this.entityData.set(DATA_SITTING, false);
+    }
+
+    private void setBedOccupied(BlockPos headPos, boolean occupied) {
+        Level lvl = this.level();
+        BlockState hs = lvl.getBlockState(headPos);
+        if (!(hs.getBlock() instanceof BedBlock)) {
+            return;
+        }
+        lvl.setBlock(headPos, hs.setValue(BedBlock.OCCUPIED, occupied), 3);
+        Direction facing = hs.getValue(BedBlock.FACING);
+        BlockPos footPos = headPos.relative(facing.getOpposite());
+        BlockState fs = lvl.getBlockState(footPos);
+        if (fs.getBlock() instanceof BedBlock) {
+            lvl.setBlock(footPos, fs.setValue(BedBlock.OCCUPIED, occupied), 3);
+        }
+    }
+
+    /** Mantém-se parada na cama; levanta se a cama sumir ou a cada 10s por sorteio. */
+    private void updateBedSit() {
+        if (this.bedPos == null) {
+            return;
+        }
+        BlockState s = this.level().getBlockState(this.bedPos);
+        if (!(s.getBlock() instanceof BedBlock)) { // cama quebrada
+            this.entityData.set(DATA_SITTING, false);
+            this.bedPos = null;
+            return;
+        }
+        this.getNavigation().stop();
+        this.setDeltaMovement(0.0D, this.getDeltaMovement().y, 0.0D);
     }
 
     public boolean isGoingHome() {
@@ -692,6 +791,14 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
 
+        // Sentada numa cama: o clique direito apenas a levanta (não abre menu nem alimenta).
+        if (this.isSittingOnBed()) {
+            if (!this.level().isClientSide) {
+                standUpFromBed();
+            }
+            return InteractionResult.sidedSuccess(this.level().isClientSide);
+        }
+
         InteractionResult special = trySpecialInteract(player, hand, stack);
         if (special != null) {
             return special;
@@ -791,6 +898,15 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.setCustomNameVisible(true);
     }
 
+    @Override
+    public void remove(Entity.RemovalReason reason) {
+        if (!this.level().isClientSide && this.bedPos != null) {
+            setBedOccupied(this.bedPos, false); // libera a cama se sumir/morrer sentada
+            this.bedPos = null;
+        }
+        super.remove(reason);
+    }
+
     @Nullable
     @Override
     public AgeableMob getBreedOffspring(ServerLevel level, AgeableMob otherParent) {
@@ -820,6 +936,11 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         // Teleporte pra casa: animação dirigida por estado (para sozinha ao terminar).
         if (isThrowing()) {
             state.setAnimation(RawAnimation.begin().thenLoop(b + "throwpearl"));
+            return PlayState.CONTINUE;
+        }
+        // Sentada (cama) ou embarcada (barco): animação de sentar.
+        if (isSittingPose()) {
+            state.setAnimation(RawAnimation.begin().thenLoop(b + "sit"));
             return PlayState.CONTINUE;
         }
         if (isCrouchingAnim()) {
@@ -995,6 +1116,125 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             }
             Vec3 towards = DefaultRandomPos.getPosTowards(this.mob, 7, 7, center, (double) (Math.PI / 2));
             return towards != null ? towards : p;
+        }
+    }
+
+    /**
+     * Sentar aleatoriamente numa cama desocupada por perto — como um aldeão que deita, mas
+     * sentada em cima. Pode usar qualquer cama livre. A cada ~10s há chance de levantar.
+     */
+    static class SitOnBedGoal extends Goal {
+        private static final int SEARCH_RADIUS = 10;
+        private static final int TRY_INTERVAL = 160;     // ~1 tentativa a cada 8s em média
+        private static final float STAND_CHANCE = 0.35F; // chance de levantar a cada 10s
+
+        private final CompanionEntity companion;
+        private final double speed;
+        @Nullable
+        private BlockPos targetBed;
+        private int giveUpTick;
+
+        SitOnBedGoal(CompanionEntity companion, double speed) {
+            this.companion = companion;
+            this.speed = speed;
+            this.setFlags(EnumSet.of(Flag.MOVE));
+        }
+
+        @Override
+        public boolean canUse() {
+            if (!this.companion.canSitOnBedNow()) {
+                return false;
+            }
+            if (this.companion.getRandom().nextInt(TRY_INTERVAL) != 0) {
+                return false;
+            }
+            BlockPos bed = findFreeBed();
+            if (bed == null) {
+                return false;
+            }
+            this.targetBed = bed;
+            return true;
+        }
+
+        @Override
+        public void start() {
+            this.giveUpTick = this.companion.tickCount + 200; // 10s para chegar à cama
+            if (this.targetBed != null) {
+                this.companion.getNavigation().moveTo(
+                        this.targetBed.getX() + 0.5D, this.targetBed.getY(), this.targetBed.getZ() + 0.5D, this.speed);
+            }
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            if (this.companion.isSittingOnBed()) {
+                if (this.companion.getBedPos() == null
+                        || (this.companion.isTame() && this.companion.isFollowing())
+                        || this.companion.isBreedActive() || this.companion.getTarget() != null
+                        || this.companion.isAwaiting() || this.companion.isGoingHome()
+                        || this.companion.isTeleportingHome() || this.companion.isPassenger()) {
+                    return false;
+                }
+                // Sorteio de levantar a cada 10s.
+                if (this.companion.tickCount >= this.companion.bedStandCheckTick) {
+                    this.companion.bedStandCheckTick = this.companion.tickCount + 200;
+                    return this.companion.getRandom().nextFloat() >= STAND_CHANCE;
+                }
+                return true;
+            }
+            // Ainda a caminho da cama.
+            if (this.targetBed == null || this.companion.tickCount > this.giveUpTick
+                    || !this.companion.canSitOnBedNow()) {
+                return false;
+            }
+            return isBedFree(this.targetBed);
+        }
+
+        @Override
+        public void tick() {
+            if (this.companion.isSittingOnBed() || this.targetBed == null) {
+                return;
+            }
+            this.companion.getLookControl().setLookAt(
+                    this.targetBed.getX() + 0.5D, this.targetBed.getY() + 0.5D, this.targetBed.getZ() + 0.5D);
+            if (this.companion.blockPosition().distSqr(this.targetBed) <= 4.0D
+                    && this.companion.getNavigation().isDone()) {
+                this.companion.sitOnBed(this.targetBed);
+            }
+        }
+
+        @Override
+        public void stop() {
+            this.companion.standUpFromBed();
+            this.targetBed = null;
+            this.companion.getNavigation().stop();
+        }
+
+        @Nullable
+        private BlockPos findFreeBed() {
+            BlockPos origin = this.companion.blockPosition();
+            BlockPos best = null;
+            double bestSqr = Double.MAX_VALUE;
+            for (BlockPos p : BlockPos.betweenClosed(
+                    origin.offset(-SEARCH_RADIUS, -3, -SEARCH_RADIUS),
+                    origin.offset(SEARCH_RADIUS, 3, SEARCH_RADIUS))) {
+                BlockState s = this.companion.level().getBlockState(p);
+                if (!(s.getBlock() instanceof BedBlock) || s.getValue(BedBlock.PART) != BedPart.HEAD
+                        || s.getValue(BedBlock.OCCUPIED)) {
+                    continue;
+                }
+                double d = origin.distSqr(p);
+                if (d < bestSqr) {
+                    bestSqr = d;
+                    best = p.immutable();
+                }
+            }
+            return best;
+        }
+
+        private boolean isBedFree(BlockPos headPos) {
+            BlockState s = this.companion.level().getBlockState(headPos);
+            return s.getBlock() instanceof BedBlock && !s.getValue(BedBlock.OCCUPIED);
         }
     }
 
