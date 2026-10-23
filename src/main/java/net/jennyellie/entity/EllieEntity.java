@@ -4,8 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 import net.jennyellie.Config;
 import net.jennyellie.registry.ModSounds;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -58,10 +56,6 @@ public class EllieEntity extends CompanionEntity {
                     stack.shrink(1);
                 }
                 this.breedBoostUntil = this.level().getGameTime() + 1200L; // 1 min
-                if (this.level() instanceof ServerLevel sl) {
-                    sl.sendParticles(ParticleTypes.HAPPY_VILLAGER, this.getX(), this.getY() + 1.0D, this.getZ(),
-                            12, 0.5D, 0.6D, 0.5D, 0.1D);
-                }
             }
             return InteractionResult.sidedSuccess(this.level().isClientSide);
         }

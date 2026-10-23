@@ -31,6 +31,7 @@ import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.behavior.EntityTracker;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.FollowOwnerGoal;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -42,6 +43,8 @@ import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.OwnerHurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.OwnerHurtTargetGoal;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.WalkTarget;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.player.Player;
@@ -183,9 +186,9 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new OpenDoorGoal(this, true)); // abre e fecha portas
-        this.goalSelector.addGoal(2, new BreedWithVillagerGoal(this));
-        this.goalSelector.addGoal(3, new AwaitCommandGoal(this));
-        this.goalSelector.addGoal(4, new MeleeAttackGoal(this, 1.1D, true));
+        this.goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.1D, true)); // defesa tem prioridade sobre reprodução
+        this.goalSelector.addGoal(3, new BreedWithVillagerGoal(this));
+        this.goalSelector.addGoal(4, new AwaitCommandGoal(this));
         this.goalSelector.addGoal(5, new CompanionFollowOwnerGoal(this, 1.15D, 6.0F, 2.0F));
         this.goalSelector.addGoal(6, new ReturnHomeGoal(this, 1.0D, 10.0D));
         this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 1.0D));
@@ -279,6 +282,15 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         if (this.entityData.get(DATA_BREED_COOLDOWN_SECS) != secs) {
             this.entityData.set(DATA_BREED_COOLDOWN_SECS, secs);
         }
+
+        // Corações leves durante o processo (~1,7/s), em ambos. A rajada grande fica no nascimento.
+        if (this.breedActive && this.tickCount % 12 == 0 && this.level() instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + 1.2D, this.getZ(), 1, 0.3D, 0.3D, 0.3D, 0.0D);
+            net.minecraft.world.entity.npc.Villager v = getBreedVillager();
+            if (v != null) {
+                sl.sendParticles(ParticleTypes.HEART, v.getX(), v.getY() + 1.2D, v.getZ(), 1, 0.3D, 0.3D, 0.3D, 0.0D);
+            }
+        }
     }
 
     private boolean isBreedOnCooldown() {
@@ -339,6 +351,9 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
                     Component.translatable("message." + JennyEllieMod.MODID + "." + animBase() + ".novillager")));
             return;
         }
+        // Reprodução vira prioridade máxima: deixa de seguir e de "aguardar comando".
+        this.setFollowing(false);
+        clearAwait();
         this.breedActive = true;
         this.breedVillagerId = nearest.getUUID();
         this.breedContactTicks = 0;
@@ -858,17 +873,17 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
                 return;
             }
             this.companion.getLookControl().setLookAt(v, 30.0F, 30.0F);
-            if (this.companion.tickCount % 10 == 0 && this.companion.level() instanceof ServerLevel sl) {
-                sl.sendParticles(ParticleTypes.HEART, this.companion.getX(), this.companion.getY() + 1.2D, this.companion.getZ(), 3, 0.3D, 0.3D, 0.3D, 0.02D);
-                sl.sendParticles(ParticleTypes.HEART, v.getX(), v.getY() + 1.2D, v.getZ(), 3, 0.3D, 0.3D, 0.3D, 0.02D);
-            }
 
             if (this.companion.distanceToSqr(v) > 2.5D * 2.5D) {
                 this.companion.getNavigation().moveTo(v, 1.0D);
-                v.getNavigation().moveTo(this.companion, 0.5D);
+                // Força o aldeão a vir — prioridade máxima via brain, sobrepondo trabalho/fuga/etc.
+                v.getBrain().setMemory(MemoryModuleType.WALK_TARGET,
+                        new WalkTarget(new EntityTracker(this.companion, false), 0.6F, 1));
+                v.getBrain().setMemory(MemoryModuleType.LOOK_TARGET, new EntityTracker(this.companion, true));
                 this.companion.breedContactTicks = 0;
             } else {
                 this.companion.getNavigation().stop();
+                v.getBrain().setMemory(MemoryModuleType.LOOK_TARGET, new EntityTracker(this.companion, true));
                 this.companion.breedContactTicks++;
                 if (this.companion.breedContactTicks >= 60) { // ~3s em contato
                     this.companion.finishBreeding(v);

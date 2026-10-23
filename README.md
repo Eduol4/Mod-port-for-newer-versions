@@ -3,9 +3,15 @@
 Rebuild limpo (SFW) contendo apenas **Jenny** e **Ellie**, portado para Minecraft **1.20.1 / Forge**.
 Base: *SchnurriTV's Sexmod (Jenny Mod)* 1.12.2 — todo o conteúdo NSFW foi deixado de fora.
 
-## ⚠️ Status: Milestone 14
+## ⚠️ Status: Milestone 15
 
 **Ainda não compilada/testada por mim** (não rodo Minecraft no meu ambiente) — você compila e testa, e a gente ajusta junto.
+
+### Novidades da Milestone 15 (ajustes na reprodução)
+- **Prioridades:** ao clicar "Aldeão", ela deixa de seguir e a reprodução vira prioridade máxima (só a defesa própria, se atacada, tem prioridade acima). Interrupção não gera cooldown — só o nascimento do bebê gera.
+- **Aldeão forçado:** o aldeão escolhido passa a ter prioridade máxima de ir até ela (comandado pelo "brain", sobrepondo trabalho/fuga/dormir/etc.).
+- **Partículas corrigidas:** corações saem de ambos durante todo o processo (igual na Jenny e na Ellie), reduzidos para ~1-2/seg; a rajada grande fica só no nascimento.
+- **Removidas as estrelinhas verdes** da Ellie ao usar maçã/cenoura dourada (a função de habilitar o botão continua).
 
 ### Novidades da Milestone 14
 - **Reprodução com aldeão.** Botão "Aldeão" isolado à direita no menu. Ao clicar, a companheira e o aldeão mais próximo (até 16 blocos) se aproximam com corações; em contato por ~3s, nasce um **bebê aldeão**, com som e corações.
