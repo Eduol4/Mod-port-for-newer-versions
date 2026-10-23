@@ -114,6 +114,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     @Nullable
     private BlockPos bedPos;             // cama onde está sentada (cabeceira), ou null
     private int bedStandCheckTick;       // próxima verificação da chance de levantar
+    private int bedCooldownUntil;        // antes disso não tenta sentar de novo (desiste do goal)
+    private static final int BED_SIT_COOLDOWN = 300; // ~15s após levantar
     private boolean appliedConfig = false;
 
     // Reprodução com aldeão
@@ -349,7 +351,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
 
     /** Pode sentar agora? (não seguindo se domesticada, sem reprodução/alvo/estados transitórios). */
     boolean canSitOnBedNow() {
-        if (this.bedPos != null || this.isPassenger()) {
+        if (this.bedPos != null || this.isPassenger() || this.tickCount < this.bedCooldownUntil) {
             return false;
         }
         if (this.isTame() && this.isFollowing()) {
@@ -385,6 +387,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             this.bedPos = null;
         }
         this.entityData.set(DATA_SITTING, false);
+        this.bedCooldownUntil = this.tickCount + BED_SIT_COOLDOWN; // desiste do goal por um tempo
     }
 
     private void setBedOccupied(BlockPos headPos, boolean occupied) {
