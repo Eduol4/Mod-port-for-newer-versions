@@ -18,6 +18,7 @@ public abstract class CompanionRenderer<T extends CompanionEntity> extends GeoEn
     protected CompanionRenderer(EntityRendererProvider.Context context, GeoModel<T> model) {
         super(context, model);
         this.shadowRadius = 0.5f;
+        this.addRenderLayer(new CompanionWeaponLayer<>(this)); // arma na mão em combate
     }
 
     @Override

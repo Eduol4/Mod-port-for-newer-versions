@@ -105,6 +105,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_SITTING =
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_IN_COMBAT =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
 
     @Nullable
     private BlockPos homePos;
@@ -218,6 +220,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.entityData.define(DATA_HAS_HOME, false);
         this.entityData.define(DATA_THROWING, false);
         this.entityData.define(DATA_SITTING, false);
+        this.entityData.define(DATA_IN_COMBAT, false);
     }
 
     /** Navegação que atravessa e abre portas, como aldeões. */
@@ -327,6 +330,10 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             if (this.entityData.get(DATA_THROWING) != throwing) {
                 this.entityData.set(DATA_THROWING, throwing);
             }
+            boolean inCombat = this.getTarget() != null;
+            if (this.entityData.get(DATA_IN_COMBAT) != inCombat) {
+                this.entityData.set(DATA_IN_COMBAT, inCombat);
+            }
             // Deixa de "ir pra casa" ao seguir, sem casa, ou ao chegar.
             if (this.goingHome) {
                 if (this.isFollowing() || !hasHome()) {
@@ -354,6 +361,11 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     /** Estado sincronizado: sentada numa cama. */
     public boolean isSittingOnBed() {
         return this.entityData.get(DATA_SITTING);
+    }
+
+    /** Estado sincronizado (cliente): em combate (tem alvo) — usado para mostrar a arma na mão. */
+    public boolean isInCombat() {
+        return this.entityData.get(DATA_IN_COMBAT);
     }
 
     /** Animação de sentar ativa quando está numa cama OU embarcada (ex.: barco). */
