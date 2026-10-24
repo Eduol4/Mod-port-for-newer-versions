@@ -39,21 +39,21 @@ public class CompanionEquipmentMenu extends AbstractContainerMenu {
         this.equip = new CompanionEquipmentContainer(entity);
 
         // Slots da entidade: armadura (coluna) + arma.
-        this.addSlot(new ArmorSlot(this.equip, 0, 8, 20, EquipmentSlot.HEAD));
-        this.addSlot(new ArmorSlot(this.equip, 1, 8, 38, EquipmentSlot.CHEST));
-        this.addSlot(new ArmorSlot(this.equip, 2, 8, 56, EquipmentSlot.LEGS));
-        this.addSlot(new ArmorSlot(this.equip, 3, 8, 74, EquipmentSlot.FEET));
-        this.addSlot(new WeaponSlot(this.equip, 4, 80, 38));
+        this.addSlot(new ArmorSlot(this.equip, 0, 8, 18, EquipmentSlot.HEAD));
+        this.addSlot(new ArmorSlot(this.equip, 1, 8, 36, EquipmentSlot.CHEST));
+        this.addSlot(new ArmorSlot(this.equip, 2, 8, 54, EquipmentSlot.LEGS));
+        this.addSlot(new ArmorSlot(this.equip, 3, 8, 72, EquipmentSlot.FEET));
+        this.addSlot(new WeaponSlot(this.equip, 4, 80, 36));
 
-        // Inventário do jogador (3 linhas).
+        // Inventário do jogador (3 linhas), mais abaixo para não encostar na coluna de armadura.
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                this.addSlot(new Slot(inv, col + row * 9 + 9, 8 + col * 18, 84 + row * 18));
+                this.addSlot(new Slot(inv, col + row * 9 + 9, 8 + col * 18, 96 + row * 18));
             }
         }
         // Hotbar.
         for (int col = 0; col < 9; col++) {
-            this.addSlot(new Slot(inv, col, 8 + col * 18, 142));
+            this.addSlot(new Slot(inv, col, 8 + col * 18, 154));
         }
     }
 

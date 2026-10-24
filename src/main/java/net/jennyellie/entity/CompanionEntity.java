@@ -14,6 +14,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -147,11 +148,13 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         super.setCustomName(getFixedName());
         this.setCustomNameVisible(true);
         this.setCanPickUpLoot(false); // equipamento é só via menu, não apanha do chão
-        // Garante que todo o equipamento equipado caia (intacto) ao morrer.
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
-            this.setDropChance(slot, 2.0F);
-        }
     }
+
+    /** Slots de equipamento gerenciados (4 armaduras + mão principal). */
+    private static final EquipmentSlot[] MANAGED_SLOTS = {
+            EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET,
+            EquipmentSlot.MAINHAND
+    };
 
     protected abstract String animBase();
 
@@ -889,6 +892,45 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             }
         }
         return result;
+    }
+
+    /** Dropa (intacto) todo o equipamento ao morrer. */
+    @Override
+    public void die(DamageSource source) {
+        if (!this.level().isClientSide() && !this.dead) {
+            for (EquipmentSlot slot : MANAGED_SLOTS) {
+                ItemStack stack = this.getItemBySlot(slot);
+                if (!stack.isEmpty()) {
+                    this.spawnAtLocation(stack.copy());
+                    this.setItemSlot(slot, ItemStack.EMPTY);
+                }
+            }
+        }
+        super.die(source);
+    }
+
+    /**
+     * Danifica a armadura ao tomar dano, como um jogador. (Em entidades que não são jogador,
+     * o vanilla não gasta a durabilidade da armadura — por isso sobrescrevemos.)
+     */
+    @Override
+    protected void hurtArmor(DamageSource source, float damage) {
+        if (damage <= 0.0F) {
+            return;
+        }
+        damage /= 4.0F;
+        if (damage < 1.0F) {
+            damage = 1.0F;
+        }
+        for (EquipmentSlot slot : new EquipmentSlot[]{
+                EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
+            ItemStack stack = this.getItemBySlot(slot);
+            if ((!source.is(DamageTypeTags.IS_FIRE) || !stack.getItem().isFireResistant())
+                    && stack.getItem() instanceof ArmorItem) {
+                final EquipmentSlot s = slot;
+                stack.hurtAndBreak((int) damage, this, e -> e.broadcastBreakEvent(s));
+            }
+        }
     }
 
     // ---------------- Equipamento (validação) ----------------

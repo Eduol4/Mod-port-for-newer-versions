@@ -16,7 +16,7 @@ public class CompanionEquipmentScreen extends AbstractContainerScreen<CompanionE
     public CompanionEquipmentScreen(CompanionEquipmentMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
         this.imageWidth = 176;
-        this.imageHeight = 166;
+        this.imageHeight = 180;
     }
 
     @Override
