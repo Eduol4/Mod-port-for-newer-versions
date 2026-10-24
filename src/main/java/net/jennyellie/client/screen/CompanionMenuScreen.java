@@ -27,7 +27,7 @@ public class CompanionMenuScreen extends Screen {
     protected void init() {
         int x = 12;
         int w = 120, h = 20, gap = 4;
-        int y = this.height / 2 - (4 * h + 3 * gap) / 2;
+        int y = this.height / 2 - (5 * h + 4 * gap) / 2;
 
         Component followLabel = this.entity.isFollowing()
                 ? Component.translatable("action.names.stopfollowme")
@@ -42,6 +42,14 @@ public class CompanionMenuScreen extends Screen {
         addRenderableWidget(goHome);
         addRenderableWidget(Button.builder(Component.translatable("action.names.equipment"),
                 b -> send(CompanionActionPacket.Action.OPEN_EQUIPMENT)).bounds(x, y + 3 * (h + gap), w, h).build());
+        // Strip / Dress up: habilitado só com armadura equipada; o rótulo depende do estado.
+        Component stripLabel = this.entity.isArmorHidden()
+                ? Component.translatable("action.names.dressup")
+                : Component.translatable("action.names.strip");
+        Button strip = Button.builder(stripLabel,
+                b -> send(CompanionActionPacket.Action.STRIP)).bounds(x, y + 4 * (h + gap), w, h).build();
+        strip.active = this.entity.hasAnyArmor();
+        addRenderableWidget(strip);
 
         // Botão de reprodução, isolado à direita.
         this.breedBtnX = this.width - 12 - w;

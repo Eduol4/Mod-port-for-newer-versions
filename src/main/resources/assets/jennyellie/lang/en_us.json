@@ -11,6 +11,8 @@
     "action.names.gohome": "Go home",
     "action.names.villager": "Villager",
     "action.names.equipment": "Equipment",
+    "action.names.strip": "Strip",
+    "action.names.dressup": "Dress up",
     "gui.jennyellie.cooldown": "%ss",
     "message.jennyellie.jenny.novillager": "There are no villagers nearby...",
     "message.jennyellie.ellie.novillager": "There are no villagers nearby...",

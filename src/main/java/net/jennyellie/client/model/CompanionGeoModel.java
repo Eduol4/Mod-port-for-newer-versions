@@ -51,11 +51,14 @@ public abstract class CompanionGeoModel<T extends CompanionEntity> extends GeoMo
         for (String name : ALWAYS_HIDDEN) {
             setVisible(name, false);
         }
+        // Blush: só aparece nos gatilhos (balde / reprodução).
+        setVisible("blush", animatable.isBlushing());
     }
 
     private void applySlot(T entity, EquipmentSlot slot, String[] varBones, String[] hideBones) {
         String visibleSuffix = variantForItem(entity.getItemBySlot(slot)); // null = vazio/não suportado
-        boolean equipped = visibleSuffix != null;
+        // "Strip": com a armadura invisível, o modelo renderiza como se não tivesse armadura.
+        boolean equipped = visibleSuffix != null && !entity.isArmorHidden();
 
         for (String base : varBones) {
             for (String suffix : VARIANTS) {

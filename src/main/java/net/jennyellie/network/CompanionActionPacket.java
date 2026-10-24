@@ -13,7 +13,7 @@ import net.minecraftforge.network.NetworkHooks;
 /** Pacote cliente -> servidor com a ação escolhida no menu de opções. */
 public class CompanionActionPacket {
 
-    public enum Action { FOLLOW, STOP, SET_HOME, GO_HOME, TOGGLE_FOLLOW, BREED, OPEN_EQUIPMENT }
+    public enum Action { FOLLOW, STOP, SET_HOME, GO_HOME, TOGGLE_FOLLOW, BREED, OPEN_EQUIPMENT, STRIP }
 
     private final int entityId;
     private final Action action;
@@ -78,6 +78,7 @@ public class CompanionActionPacket {
                                 (windowId, inv, p) -> new CompanionEquipmentMenu(windowId, inv, companion),
                                 companion.getDisplayName()),
                         b -> b.writeVarInt(companion.getId()));
+                case STRIP -> companion.commandStrip();
             }
         });
         ctx.get().setPacketHandled(true);

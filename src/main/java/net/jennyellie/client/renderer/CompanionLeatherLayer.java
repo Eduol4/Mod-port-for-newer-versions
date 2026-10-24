@@ -50,6 +50,9 @@ public class CompanionLeatherLayer<T extends CompanionEntity> extends GeoRenderL
     public void render(PoseStack poseStack, T animatable, BakedGeoModel bakedModel, RenderType renderType,
                        MultiBufferSource bufferSource, VertexConsumer buffer, float partialTick,
                        int packedLight, int packedOverlay) {
+        if (animatable.isArmorHidden()) {
+            return; // armadura "despida" fica invisível, inclusive o couro
+        }
         Map<Integer, Set<String>> byColor = new HashMap<>();
         for (Map.Entry<EquipmentSlot, String[]> e : SLOT_ROOTS.entrySet()) {
             ItemStack stack = animatable.getItemBySlot(e.getKey());

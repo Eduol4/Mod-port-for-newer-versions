@@ -57,9 +57,11 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ArmorMaterials;
+import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.DiggerItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.TieredItem;
 import net.minecraft.world.item.Tiers;
@@ -107,6 +109,15 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_IN_COMBAT =
             SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_BLUSH =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_ARMOR_HIDDEN =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_STRIPPING =
+            SynchedEntityData.defineId(CompanionEntity.class, EntityDataSerializers.BOOLEAN);
+
+    private int blushUntilTick;   // blush visível até este tick (balde / reprodução + 3s)
+    private int stripUntilTick;   // fim da animação de strip/dress (então alterna a visibilidade)
 
     @Nullable
     private BlockPos homePos;
@@ -221,6 +232,9 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         this.entityData.define(DATA_THROWING, false);
         this.entityData.define(DATA_SITTING, false);
         this.entityData.define(DATA_IN_COMBAT, false);
+        this.entityData.define(DATA_BLUSH, false);
+        this.entityData.define(DATA_ARMOR_HIDDEN, false);
+        this.entityData.define(DATA_STRIPPING, false);
     }
 
     /** Navegação que atravessa e abre portas, como aldeões. */
@@ -340,6 +354,8 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             if (this.entityData.get(DATA_IN_COMBAT) != inCombat) {
                 this.entityData.set(DATA_IN_COMBAT, inCombat);
             }
+            updateBlush();
+            updateStrip();
             // Deixa de "ir pra casa" ao seguir, sem casa, ou ao chegar.
             if (this.goingHome) {
                 if (this.isFollowing() || !hasHome()) {
@@ -372,6 +388,65 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     /** Estado sincronizado (cliente): em combate (tem alvo) — usado para mostrar a arma na mão. */
     public boolean isInCombat() {
         return this.entityData.get(DATA_IN_COMBAT);
+    }
+
+    // ---------------- Blush ----------------
+
+    /** Agenda o blush por 3s a partir de agora (reiniciável). */
+    public void triggerBlush() {
+        this.blushUntilTick = this.tickCount + 60;
+    }
+
+    private void updateBlush() {
+        // Visível durante a reprodução (e por 3s após — blushUntilTick é setado em finishBreeding).
+        boolean blush = this.isBreedActive() || this.tickCount < this.blushUntilTick;
+        if (this.entityData.get(DATA_BLUSH) != blush) {
+            this.entityData.set(DATA_BLUSH, blush);
+        }
+    }
+
+    public boolean isBlushing() {
+        return this.entityData.get(DATA_BLUSH);
+    }
+
+    // ---------------- Strip / Dress up ----------------
+
+    private static final int STRIP_ANIM_TICKS = 101; // ~5.04s
+
+    /** Tem pelo menos uma peça de armadura equipada (mesmo que invisível). */
+    public boolean hasAnyArmor() {
+        return !this.getItemBySlot(EquipmentSlot.HEAD).isEmpty()
+                || !this.getItemBySlot(EquipmentSlot.CHEST).isEmpty()
+                || !this.getItemBySlot(EquipmentSlot.LEGS).isEmpty()
+                || !this.getItemBySlot(EquipmentSlot.FEET).isEmpty();
+    }
+
+    public boolean isArmorHidden() {
+        return this.entityData.get(DATA_ARMOR_HIDDEN);
+    }
+
+    public boolean isStripping() {
+        return this.entityData.get(DATA_STRIPPING);
+    }
+
+    /** Inicia a animação de strip/dress; ao terminar, alterna a visibilidade da armadura. */
+    public void commandStrip() {
+        if (this.isStripping() || !hasAnyArmor()) {
+            return;
+        }
+        this.entityData.set(DATA_STRIPPING, true);
+        this.stripUntilTick = this.tickCount + STRIP_ANIM_TICKS;
+    }
+
+    private void updateStrip() {
+        if (!this.isStripping()) {
+            return;
+        }
+        this.getNavigation().stop(); // fica parada durante a animação
+        if (this.tickCount >= this.stripUntilTick) {
+            this.entityData.set(DATA_ARMOR_HIDDEN, !this.isArmorHidden());
+            this.entityData.set(DATA_STRIPPING, false);
+        }
     }
 
     /** Animação de sentar ativa quando está numa cama OU embarcada (ex.: barco). */
@@ -590,6 +665,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         }
         this.breedCooldownUntil = this.level().getGameTime() + breedCooldownTicks();
         this.breedBoostUntil = 0L; // desabilita o botão imediatamente (Ellie)
+        this.blushUntilTick = this.tickCount + 60; // blush por mais 3s após o bebê nascer
         cancelBreed();
     }
 
@@ -788,15 +864,16 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     }
 
     public void onCommandFeedback(ServerPlayer player, CompanionActionPacket.Action action) {
-        if (action == CompanionActionPacket.Action.OPEN_EQUIPMENT) {
-            return; // abrir o inventário não tem fala/som
+        if (action == CompanionActionPacket.Action.OPEN_EQUIPMENT
+                || action == CompanionActionPacket.Action.STRIP) {
+            return; // abrir inventário / strip não têm fala/som
         }
         String key = switch (action) {
             case FOLLOW, TOGGLE_FOLLOW, BREED -> "follow";
             case STOP -> "stop";
             case SET_HOME -> "sethome";
             case GO_HOME -> "gohome";
-            case OPEN_EQUIPMENT -> "follow";
+            case OPEN_EQUIPMENT, STRIP -> "follow";
         };
         Component msg = Component.translatable(
                 "message." + JennyEllieMod.MODID + "." + animBase() + "." + key, player.getDisplayName());
@@ -807,7 +884,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             case STOP -> soundStop();
             case SET_HOME -> soundSetHome();
             case GO_HOME -> soundGoHome();
-            case OPEN_EQUIPMENT -> null;
+            case OPEN_EQUIPMENT, STRIP -> null;
         };
         if (sound != null) {
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
@@ -833,6 +910,12 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+
+        // Clique com um balde em mãos: faz o blush aparecer por 3s (reiniciável).
+        if (!this.level().isClientSide
+                && (stack.getItem() instanceof BucketItem || stack.is(Items.MILK_BUCKET))) {
+            triggerBlush();
+        }
 
         // Sentada numa cama: o clique direito apenas a levanta (não abre menu nem alimenta).
         if (this.isSittingOnBed()) {
@@ -1001,6 +1084,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         }
         tag.putLong("BreedCooldownUntil", this.breedCooldownUntil);
         tag.putLong("BreedBoostUntil", this.breedBoostUntil);
+        tag.putBoolean("ArmorHidden", this.isArmorHidden());
     }
 
     @Override
@@ -1015,6 +1099,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         }
         this.breedCooldownUntil = tag.getLong("BreedCooldownUntil");
         this.breedBoostUntil = tag.getLong("BreedBoostUntil");
+        this.entityData.set(DATA_ARMOR_HIDDEN, tag.getBoolean("ArmorHidden"));
         super.setCustomName(getFixedName());
         this.setCustomNameVisible(true);
     }
@@ -1054,6 +1139,11 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         String b = "animation." + animBase() + ".";
         boolean moving = state.isMoving();
 
+        // Strip / dress up: animação especial, uma vez (segura o último quadro até terminar).
+        if (isStripping()) {
+            state.setAnimation(RawAnimation.begin().thenPlay(b + "strip"));
+            return PlayState.CONTINUE;
+        }
         // Teleporte pra casa: animação dirigida por estado (para sozinha ao terminar).
         if (isThrowing()) {
             state.setAnimation(RawAnimation.begin().thenLoop(b + "throwpearl"));
