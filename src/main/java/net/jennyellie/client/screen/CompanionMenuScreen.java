@@ -68,7 +68,9 @@ public class CompanionMenuScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
-        graphics.drawString(this.font, this.title, 12, this.height / 2 - (2 * 20 + 18), 0xFFFFFF);
+        // Nome acima do primeiro botão (que começa em height/2 - 58), sem sobrepor.
+        int firstBtnTop = this.height / 2 - (5 * 20 + 4 * 4) / 2;
+        graphics.drawString(this.font, this.title, 12, firstBtnTop - 12, 0xFFFFFF);
 
         int secs = this.entity.getBreedCooldownSecs();
         if (secs > 0) {

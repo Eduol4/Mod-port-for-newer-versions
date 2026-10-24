@@ -57,7 +57,6 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ArmorMaterials;
-import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.DiggerItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -911,9 +910,9 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
 
-        // Clique com um balde em mãos: faz o blush aparecer por 3s (reiniciável).
-        if (!this.level().isClientSide
-                && (stack.getItem() instanceof BucketItem || stack.is(Items.MILK_BUCKET))) {
+        // Clique com um BALDE VAZIO em mãos (o que gera o balde de leite + buff):
+        // faz o blush aparecer por 3s (reiniciável).
+        if (!this.level().isClientSide && stack.is(Items.BUCKET)) {
             triggerBlush();
         }
 
