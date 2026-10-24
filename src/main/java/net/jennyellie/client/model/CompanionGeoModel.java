@@ -59,7 +59,9 @@ public abstract class CompanionGeoModel<T extends CompanionEntity> extends GeoMo
 
         for (String base : varBones) {
             for (String suffix : VARIANTS) {
-                setVisible(base + suffix, equipped && suffix.equals(visibleSuffix));
+                // O couro ("__l") é desenhado numa camada à parte (tingido), nunca na passada principal.
+                boolean show = equipped && suffix.equals(visibleSuffix) && !suffix.equals("__l");
+                setVisible(base + suffix, show);
             }
         }
         if (hideBones != null) {

@@ -272,9 +272,15 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
             return false;
         }
         boolean result = super.hurt(source, amount);
-        // Não domesticada: revida por ~8-10s a partir do último golpe.
-        if (result && !this.isTame() && !this.level().isClientSide && source.getEntity() instanceof LivingEntity) {
-            this.calmUntilTick = this.tickCount + 160 + this.random.nextInt(41);
+        if (result && !this.level().isClientSide) {
+            // Não domesticada: revida por ~8-10s a partir do último golpe.
+            if (!this.isTame() && source.getEntity() instanceof LivingEntity) {
+                this.calmUntilTick = this.tickCount + 160 + this.random.nextInt(41);
+            }
+            // Domesticada: recupera 1 HP imediatamente ao ser atingida.
+            if (this.isTame()) {
+                this.heal(1.0F);
+            }
         }
         return result;
     }
@@ -897,6 +903,7 @@ public abstract class CompanionEntity extends TamableAnimal implements GeoEntity
         boolean result = super.doHurtTarget(target);
         if (result && !this.level().isClientSide) {
             this.triggerAnim("attack", "attack" + this.random.nextInt(3));
+            this.heal(1.0F); // cura 1 HP ao acertar um golpe (domesticada ou não)
             // Durabilidade da arma na mão, como um jogador ao atacar.
             ItemStack weapon = this.getMainHandItem();
             if (!weapon.isEmpty() && weapon.isDamageableItem()) {
