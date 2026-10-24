@@ -12,11 +12,12 @@ import software.bernie.geckolib.model.GeoModel;
 /**
  * Modelo-base das companheiras.
  *
- * Esconde os ossos que o render original do mod controlava manualmente e que não usamos
- * (steve/itens/peças NSFW), e controla a ARMADURA: cada osso de armadura foi duplicado no geo
- * em 4 variantes (diamante = base, ouro = "__g", ferro/malha = "__i", couro = "__l"), cada uma
- * com as UVs deslocadas em U para a faixa daquele material na textura. Aqui mostramos apenas a
- * variante do material equipado em cada slot (ou nenhuma, se o slot estiver vazio).
+ * Esconde os ossos de controle do mod original (steve/itens/peças NSFW) e controla a ARMADURA:
+ * cada osso de armadura foi duplicado no geo em 4 variantes (diamante = base, ouro = "__g",
+ * ferro/malha = "__i", couro = "__l"), cada uma com as UVs deslocadas em U para a faixa daquele
+ * material. Mostramos só a variante do material equipado em cada slot. Além disso, ao equipar
+ * peitoral/calça, escondemos a "carne" que ficaria para fora (seios/glúteos), tal como o original,
+ * já que a armadura é moldada para cobri-los.
  */
 public abstract class CompanionGeoModel<T extends CompanionEntity> extends GeoModel<T> {
 
@@ -31,6 +32,10 @@ public abstract class CompanionGeoModel<T extends CompanionEntity> extends GeoMo
             "armorHip", "armorPantsUpL", "armorPantsUpR", "armorPantsLowL", "armorPantsLowR"};
     private static final String[] FEET_BONES = {"armorShoesL", "armorShoesR"};
 
+    // "Carne" escondida quando a peça correspondente está equipada (a armadura cobre).
+    private static final String[] CHEST_HIDE = {"boobsFlesh", "upperBodyL", "upperBodyR"};
+    private static final String[] LEGS_HIDE = {"fleshL", "fleshR", "curvesL", "curvesR", "kneeL", "kneeR"};
+
     /** Sufixos das variantes: diamante (base), ouro, ferro/malha, couro. */
     private static final String[] VARIANTS = {"", "__g", "__i", "__l"};
 
@@ -38,20 +43,28 @@ public abstract class CompanionGeoModel<T extends CompanionEntity> extends GeoMo
     public void setCustomAnimations(T animatable, long instanceId, AnimationState<T> animationState) {
         super.setCustomAnimations(animatable, instanceId, animationState);
 
+        applySlot(animatable, EquipmentSlot.HEAD, HEAD_BONES, null);
+        applySlot(animatable, EquipmentSlot.CHEST, CHEST_BONES, CHEST_HIDE);
+        applySlot(animatable, EquipmentSlot.LEGS, LEGS_BONES, LEGS_HIDE);
+        applySlot(animatable, EquipmentSlot.FEET, FEET_BONES, null);
+
+        // Garante que peças de controle/NSFW fiquem sempre escondidas (por último).
         for (String name : ALWAYS_HIDDEN) {
             setVisible(name, false);
         }
-        applySlot(animatable, EquipmentSlot.HEAD, HEAD_BONES);
-        applySlot(animatable, EquipmentSlot.CHEST, CHEST_BONES);
-        applySlot(animatable, EquipmentSlot.LEGS, LEGS_BONES);
-        applySlot(animatable, EquipmentSlot.FEET, FEET_BONES);
     }
 
-    private void applySlot(T entity, EquipmentSlot slot, String[] baseBones) {
+    private void applySlot(T entity, EquipmentSlot slot, String[] baseBones, String[] hideWhenEquipped) {
         String visibleSuffix = variantForItem(entity.getItemBySlot(slot)); // null = slot vazio/não suportado
+        boolean equipped = visibleSuffix != null;
         for (String base : baseBones) {
             for (String suffix : VARIANTS) {
-                setVisible(base + suffix, visibleSuffix != null && suffix.equals(visibleSuffix));
+                setVisible(base + suffix, equipped && suffix.equals(visibleSuffix));
+            }
+        }
+        if (hideWhenEquipped != null) {
+            for (String name : hideWhenEquipped) {
+                setVisible(name, !equipped); // esconde a carne quando a armadura cobre
             }
         }
     }
